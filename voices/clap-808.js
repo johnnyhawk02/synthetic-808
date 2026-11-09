@@ -28,14 +28,14 @@ export const CLAP_FIT = { legacy: false };
 
 /** Fitted constants (times in seconds, frequencies in Hz). */
 export const CLAP_808 = {
-  bpF: 1079.8, bpQ: 1.5492, drive: 1.2761,
-  tooth: 0.011022, win: 0.02684, tTau: 0.0091024, lTau: 0.027025, expK: 1.2802,
-  vA: 0.037906, vAtt: 0.017896, vDec: 0.4747, vLp: 3345.3, vLev: 0.141,
+  bpF: 1079.8, bpQ: 2.6, drive: 1.2831,
+  tooth: 0.011667, win: 0.028223, tTau: 0.0040433, lTau: 0.032754, expK: 1.4608,
+  vA: 0.029425, vAtt: 0.04171, vDec: 0.46987, vLp: 2200, vLev: 0.141,
   thump: 0.010681,
   // maracas
   maAtt: 0.012621, maHold: 0.021841, maRel: 0.001999,
   maHp1: 912.32, maHpF: 10111, maHpQ: 1.7524, maLp: 2764.7, maGain: 7.82,
-  gain: 5.73, // clap output level, matched to the earlier clap's loudness
+  gain: 8.15, // clap output level, matched to the earlier clap's loudness
 };
 
 const span = (v, s) => s ** ((Math.min(Math.max(v, 0), 1) - 0.5) * 2);

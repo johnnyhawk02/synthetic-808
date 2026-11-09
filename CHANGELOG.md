@@ -2,6 +2,12 @@
 
 The version is shown next to the title on the page and in `package.json`.
 
+## 0.2.1
+
+- Hand clap refitted: the separate claps were smeared together (the gaps between them only
+  fell about 20 dB, against about 30 dB on a real 808). The claps are now distinct, the noise
+  band is narrower and the reverb tail darker, at the same loudness.
+
 ## 0.2.0
 
 - Bass drum, toms and congas, rim shot and claves, hand clap and maracas, cowbell and hi-hats

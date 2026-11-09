@@ -1,6 +1,6 @@
 {
   "name": "drum-voices-js",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "JavaScript port of the twelve drum voices from app/src",
   "type": "module",
   "main": "index.js",

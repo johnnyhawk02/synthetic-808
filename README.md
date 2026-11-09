@@ -4,7 +4,7 @@ Twelve analogue-style drum voices in plain JavaScript, with no dependencies: bas
 three toms (or congas), rim shot (or claves), hand clap (or maracas), cowbell, cymbal and
 open and closed hi-hats.
 
-Version 0.2.0 (shown next to the title on the page; see `CHANGELOG.md`).
+Version 0.2.1 (shown next to the title on the page; see `CHANGELOG.md`).
 
 **Play it:** https://johnnyhawk02.github.io/synthetic-808/ (pads, knobs and a 16-step sequencer;
 the page is `index.html` and `demo/`).
@@ -182,7 +182,10 @@ beat uses only a few percent of one CPU core.
   Maracas: noise through a gate that opens slowly, holds and snaps shut, then two high-passes.
   The constants are fitted to a component-level simulation of the board across its decay,
   spacing and reverb settings, and to the recordings. Spectrogram error against the recordings
-  dropped from about 11 dB to 5 dB for both. Knobs, all centred = as built: Offset sets the clap
+  dropped from about 11 dB to 5 dB for both. In 0.2.1 the clap was refitted on its envelope at
+  2 ms resolution as well (the spectrogram is too coarse to see the gaps between claps, so the
+  claps had smeared together): the gaps now fall about 30 dB like the recording's, the noise
+  band is narrower and the reverb darker; clap error is now 3.9 dB. Knobs, all centred = as built: Offset sets the clap
   spacing, Claps the window (how many claps), Decay the last clap, Tail and Rev the reverb's
   decay and level, Filter its low-pass; for the maracas, Decay sets the gate length, Offset the
   attack and Filter the high-pass tuning. `CLAP_FIT.legacy = true` restores the Rust clap.
