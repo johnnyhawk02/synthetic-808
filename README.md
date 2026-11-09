@@ -4,7 +4,7 @@ Twelve analogue-style drum voices in plain JavaScript, with no dependencies: bas
 three toms (or congas), rim shot (or claves), hand clap (or maracas), cowbell, cymbal and
 open and closed hi-hats.
 
-Version 0.2.0 (shown next to the title on the page; each release is tagged `vX.Y.Z` in git).
+Version 0.2.0 (shown next to the title on the page; see `CHANGELOG.md`).
 
 **Play it:** https://johnnyhawk02.github.io/synthetic-808/ (pads, knobs and a 16-step sequencer;
 the page is `index.html` and `demo/`).
