@@ -6,6 +6,7 @@ import { Metal } from './voices/metal.js';
 import { Bass808, BASS_FIT } from './voices/bass-808.js';
 import { BassDrum } from './voices/bass-drum.js';
 import { Snare, SNARE_FIT } from './voices/snare.js';
+import { Snare808 } from './voices/snare-808.js';
 import { Tom, LOW, MID, HIGH } from './voices/tom.js';
 import { Tom808, TOM_FIT } from './voices/tom-808.js';
 import { RimShot } from './voices/rimshot.js';
@@ -67,6 +68,7 @@ export class Engine {
     this.bassLegacy = !!BASS_FIT.legacy;
     this.bass = this.bassLegacy ? new BassDrum(sr) : new Bass808(sr);
     this.snare = new Snare(sr);
+    this.snare808 = new Snare808(sr);
     this.clapLegacy = !!CLAP_FIT.legacy;
     this.clap = this.clapLegacy ? new Clap(sr, 0x12345678) : new Clap808(sr, 0x12345678);
     const osr = sr * oversample, os = oversample;
@@ -116,7 +118,7 @@ export class Engine {
         this.accent.amp = 1;
         break;
       case 1: this.bass.trigger(vel); this.gains[i] = 1; break;
-      case 2: this.snare.trigger(vel); this.gains[i] = 1; break;
+      case 2: (p.get('SD_SW') > 0.5 ? this.snare808 : this.snare).trigger(vel); this.gains[i] = 1; break;
       case 3: case 4: case 5:
         this.toms[i - 3].trigger(vel, p.get(TOM_KEYS[i - 3][5]) > 0.5);
         this.gains[i] = 1;
@@ -154,7 +156,7 @@ export class Engine {
     this.resets = (this.resets || 0) + 1;
     switch (i) {
       case 1: this.bass = this.bassLegacy ? new BassDrum(sr) : new Bass808(sr); break;
-      case 2: this.snare = new Snare(sr); break;
+      case 2: this.snare = new Snare(sr); this.snare808 = new Snare808(sr); break;
       case 3: case 4: case 5:
         this.toms[i - 3] = this._newTom(i - 3); break;
       case 6: this.rim = this.rimLegacy ? new RimShot(osr, os) : new Rim808(osr, os); break;
@@ -201,10 +203,12 @@ export class Engine {
     const v = this._v;
     const os = this.os;
 
-    this.snare.prepare({
+    const sdK = {
       tone: p.get('SD_TONE'), snappy: p.get('SD_SNAPPY'), decay: p.get('SD_DECAY'),
       ndec: p.get('SD_NDEC'), color: SD_COLOR, wires: p.get('SD_WIRES'),
-    });
+    };
+    this.snare.prepare(sdK);
+    this.snare808.prepare(sdK);
     const bd = [p.get('BD_TUNE'), p.get('BD_ATK'), p.get('BD_DEC'), p.get('BD_PAMT'), p.get('BD_VOL'), p.get('BD_CLICK'), p.get('BD_HOLD')];
     const sdBal = p.get('SD_BAL'), sdPitch = p.get('SD_PITCH');
     const sdLevel = sgnpow(p.get('SD_VOL'), 1.12) * (SNARE_FIT.legacy ? SD_POST_GAIN : SD_FIT_GAIN);
@@ -240,7 +244,7 @@ export class Engine {
 
       const awake = this._awake;
       v[1] = awake[1] ? this.bass.tick(bd[0], bd[1], bd[2], bd[3], bd[4], bd[5], bd[6]) * BD_POST_GAIN : 0;
-      v[2] = awake[2] ? this.snare.tick(sdBal, sdPitch) * sdLevel : 0;
+      v[2] = awake[2] ? (this.snare.tick(sdBal, sdPitch) + this.snare808.tick(sdBal, sdPitch)) * sdLevel : 0;
       v[7] = this.clap.tick();
       let sum = this._mix(v, 0, 3, trgLevel, hcLevel, peaks) + this._mix(v, 7, 8, trgLevel, hcLevel, peaks);
 

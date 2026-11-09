@@ -8,7 +8,7 @@ import { SAMPLE_MAP, sampleNames } from '../sampler.js';
 // Spread, Duty and Volt act on the shared metal oscillators (cymbal, hats, cowbell in HH mode).
 const COLUMNS = [
   { voice: 'bass', name: 'Bass drum', key: 'a', knobs: [['BD_VOL', 'Level'], ['BD_TUNE', 'Tune'], ['BD_DEC', 'Decay'], ['BD_ATK', 'Tone'], ['BD_PAMT', 'P.Amt'], ['BD_CLICK', 'Click'], ['BD_HOLD', 'Attack']] },
-  { voice: 'snare', name: 'Snare', key: 's', knobs: [['SD_VOL', 'Level'], ['SD_TONE', 'Tone'], ['SD_SNAPPY', 'Snappy'], ['SD_DECAY', 'Dec'], ['SD_NDEC', 'N.Dec'], ['SD_BAL', 'Tilt'], ['SD_PITCH', 'Pitch'], ['SD_WIRES', 'Wires']] },
+  { voice: 'snare', name: 'Snare', key: 's', knobs: [['SD_VOL', 'Level'], ['SD_TONE', 'Tone'], ['SD_SNAPPY', 'Snappy'], ['SD_DECAY', 'Dec'], ['SD_NDEC', 'N.Dec'], ['SD_BAL', 'Tilt'], ['SD_PITCH', 'Pitch'], ['SD_WIRES', 'Wires']], sw: ['SD_SW', 'Fit', 'Circuit'] },
   { voice: 'lowTom', name: 'Low tom', alt: 'Low conga', key: 'd', knobs: [['LT_VOL', 'Level'], ['LT_TUNE', 'Tune'], ['LT_DEC', 'Dec'], ['LT_ATK', 'Noise', 'main']], sw: ['LT_SW', 'Conga', 'Tom'] },
   { voice: 'midTom', name: 'Mid tom', alt: 'Mid conga', key: 'f', knobs: [['MT_VOL', 'Level'], ['MT_TUNE', 'Tune'], ['MT_DEC', 'Dec'], ['MT_ATK', 'Noise', 'main']], sw: ['MT_SW', 'Conga', 'Tom'] },
   { voice: 'hiTom', name: 'Hi tom', alt: 'Hi conga', key: 'g', knobs: [['HT_VOL', 'Level'], ['HT_TUNE', 'Tune'], ['HT_DEC', 'Dec'], ['HT_ATK', 'Noise', 'main']], sw: ['HT_SW', 'Conga', 'Tom'] },

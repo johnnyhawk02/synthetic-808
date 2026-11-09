@@ -18,6 +18,7 @@ the output matches it to within floating-point rounding (see Tests).
 | `voices/bass-808.js` | `Bass808`, the bass drum laid out like the TR-808 circuit (used by default) | |
 | `voices/bass-drum.js` | `BassDrum` (the Rust bass drum, `BASS_FIT.legacy = true`) | `bd.rs` |
 | `voices/snare.js` | `Snare` | `sd.rs` |
+| `voices/snare-808.js` | `Snare808`, the snare laid out like the TR-808 circuit (`SD_SW = 1`) | |
 | `voices/tom-808.js` | `Tom808`, toms and congas laid out like the TR-808 boards (used by default) | |
 | `voices/tom.js` | `Tom` plus the `LOW`, `MID`, `HIGH` specs (the Rust toms, `TOM_FIT.legacy = true`) | `tom.rs` |
 | `voices/rim-808.js` | `Rim808`, rim shot or claves laid out like the TR-808 board (used by default) | |
@@ -225,9 +226,11 @@ beat uses only a few percent of one CPU core.
   Decay timer runs out or the closed hat chokes it. Fitted to a component-level simulation of
   the circuits and to the recordings: open hat 5.0 to 4.2 dB, closed hat 4.9 to 2.8.
   `HATS_FIT.legacy = true` restores the Rust hats.
-- The snare stays the refit described above: a rebuild along the lines of the snare circuit
-  (two resonators, the loaded Tone pot, the snappy envelope with its Vbe threshold, the wires'
-  high-pass) scored 5.9 dB against the recordings, against 2.7 for the refit.
+- The snare stays the refit described above by default. A rebuild along the lines of the snare
+  circuit (two resonators, the loaded Tone pot, the snappy envelope with its Vbe threshold, the
+  wires' high-pass) scored 5.9 dB against the recordings, against 2.7 for the refit; it is
+  `voices/snare-808.js`, chosen with the snare's Fit / Circuit switch (`SD_SW`, 0 = Fit,
+  1 = Circuit), level-matched to the refit and using the same knobs.
 - Controls added for the circuit-based voices (all 0..1, centred = as built): bass drum Click
   (`BD_CLICK`, the trigger's click, 0 to x2) and Attack (`BD_HOLD`, how long the fast first
   segment lasts, x1/3 to x3); snare Wires (`SD_WIRES`, the noise high-pass, an octave either
