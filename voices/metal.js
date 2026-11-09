@@ -82,7 +82,7 @@ export class Metal {
     this.hp2 = new Biquad();
     this.low = new Float64Array(6);
     /** last output; reused every tick to avoid allocation */
-    this.out = { hi: 0, lo: 0, cb1: 0, cb2: 0 };
+    this.out = { raw: 0, hi: 0, lo: 0, cb1: 0, cb2: 0 };
   }
 
   /** @param {MetalKnobs} k  @returns {{hi:number, lo:number, cb1:number, cb2:number}} */
@@ -123,7 +123,7 @@ export class Metal {
     const c1 = k.cbFromHats ? low[4] : f1;
     const c2 = k.cbFromHats ? low[5] : f2;
     const o = this.out;
-    o.hi = hi; o.lo = lo; o.cb1 = (c1 - 0.5) * 2; o.cb2 = (c2 - 0.5) * 2;
+    o.raw = m; o.hi = hi; o.lo = lo; o.cb1 = (c1 - 0.5) * 2; o.cb2 = (c2 - 0.5) * 2;
     return o;
   }
 }

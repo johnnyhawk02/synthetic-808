@@ -10,6 +10,7 @@ import { RimShot } from './voices/rimshot.js';
 import { Clap } from './voices/clap.js';
 import { Cowbell } from './voices/cowbell.js';
 import { Cymbal, stretchFor } from './voices/cymbal.js';
+import { Cymbal808, CYMBAL_FIT } from './voices/cymbal-808.js';
 import { Hats } from './voices/hats.js';
 import { sgnpow, HalfbandDecimator } from './voices/dsp.js';
 
@@ -30,6 +31,7 @@ const TOM_POST_GAIN = [0.0513, 0.0457, 0.0393];
 const RS_POST_GAIN = 0.0473;
 const CB_POST_GAIN = 0.0446;
 const RC_POST_GAIN = 0.01174;
+const RC_808_GAIN = 0.48; // fitted cymbal (cymbal-808.js), about as loud as the Rust one
 const HAT_POST_GAIN = [0.039, 0.0462]; // [closed, open]
 
 const TOM_KEYS = [
@@ -64,7 +66,8 @@ export class Engine {
     this.rim = new RimShot(osr, os);
     this.cowbell = new Cowbell(osr, os);
     this.metal = new Metal(osr, os);
-    this.cymbal = new Cymbal(osr, os);
+    this.cymbalLegacy = !!CYMBAL_FIT.legacy;
+    this.cymbal = this.cymbalLegacy ? new Cymbal(osr, os) : new Cymbal808(osr, os);
     this.hats = new Hats(osr, os);
     this.decimator = new HalfbandDecimator();
     this._sub = new Float64Array(2);
@@ -140,7 +143,7 @@ export class Engine {
       case 6: this.rim = new RimShot(osr, os); break;
       case 7: this.clap = new Clap(sr, 0x12345678); break;
       case 8: this.cowbell = new Cowbell(osr, os); this.metal = new Metal(osr, os); break;
-      case 9: this.cymbal = new Cymbal(osr, os); this.metal = new Metal(osr, os); break;
+      case 9: this.cymbal = this.cymbalLegacy ? new Cymbal(osr, os) : new Cymbal808(osr, os); this.metal = new Metal(osr, os); break;
       case 10: case 11: this.hats = new Hats(osr, os); this.metal = new Metal(osr, os); break;
     }
   }
@@ -206,7 +209,8 @@ export class Engine {
     const chDec = p.get('CH_DEC'), ohDec = p.get('OH_DEC');
     const ohLevel = sgnpow(p.get('OH_VOL'), 1.12) * HAT_POST_GAIN[1];
     const chLevel = sgnpow(p.get('CH_VOL'), 1.12) * HAT_POST_GAIN[0];
-    this.cymbal.stretch = stretchFor(rcDec);
+    if (this.cymbalLegacy) this.cymbal.stretch = stretchFor(rcDec);
+    const cyGain = this.cymbalLegacy ? RC_POST_GAIN : RC_808_GAIN;
     const sampler = this.sampler;
     sampler?.prepare(p);
 
@@ -235,7 +239,9 @@ export class Engine {
         if (awake[8] || awake[9] || hatsOn) {
           const mo = this.metal.tick(metalKnobs);
           v[8] = awake[8] ? this.cowbell.tick(mo.cb1, mo.cb2, cbVol, cbDec) * CB_POST_GAIN : 0;
-          v[9] = awake[9] ? this.cymbal.tick(mo.hi, mo.lo, rcVol, rcTone, rcDec) * RC_POST_GAIN : 0;
+          v[9] = !awake[9] ? 0 : this.cymbalLegacy
+            ? this.cymbal.tick(mo.hi, mo.lo, rcVol, rcTone, rcDec) * cyGain
+            : this.cymbal.tick(mo.raw, rcVol, rcTone, rcDec) * cyGain;
           if (hatsOn) {
             const hats = this.hats.tick(mo.hi, chDec, ohDec);
             v[10] = hats.open * ohLevel;

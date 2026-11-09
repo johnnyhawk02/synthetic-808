@@ -21,7 +21,8 @@ the output matches it to within floating-point rounding (see Tests).
 | `voices/rimshot.js` | `RimShot` (rim shot or claves) | `rs.rs` |
 | `voices/clap.js` | `Clap` (hand clap or maracas) | clap block in `synth.rs` |
 | `voices/cowbell.js` | `Cowbell` | `cb.rs` |
-| `voices/cymbal.js` | `Cymbal`, `stretchFor()` | `cymbal.rs` |
+| `voices/cymbal-808.js`, `voices/cymbal-table.js` | `Cymbal808`, the cymbal fitted to the TR-808 recordings (used by default) | |
+| `voices/cymbal.js` | `Cymbal`, `stretchFor()` (the Rust cymbal, `CYMBAL_FIT.legacy = true`) | `cymbal.rs` |
 | `voices/hats.js` | `Hats` (closed and open) | `hats.rs` |
 | `voices/metal.js` | `Metal`, the shared oscillator bank feeding cowbell, cymbal and hats | `metal.rs` |
 | `voices/dsp.js` | shared helpers (noise generators, `sgnpow`) | |
@@ -158,6 +159,15 @@ beat uses only a few percent of one CPU core.
   recordings the spectrogram error dropped from about 8 dB to 2.6 dB. The kit balance is kept
   by lowering the snare's output gain. `SNARE_FIT.legacy = true` restores the Rust snare
   (the Rust comparison test does this).
+- The cymbal is rebuilt from the 25 recordings in `samples/808/CY` (`voices/cymbal-808.js`). The
+  metal oscillators' mix is split into a low band (up to about 4 kHz), a mid band and a top band
+  (above about 8.5 kHz), each filtered to the recordings' spectrum and given its own envelope.
+  The low band rings for seconds with a rounded fade and sets the tail; the mid and top fall
+  fast and then linger, and Tone mainly makes the top louder and shorter. Each band's level and
+  envelope shape at every recorded Tone/Decay position are in `voices/cymbal-table.js` and are
+  interpolated in between. Spectrogram error against the recordings dropped from about 14 dB to
+  4 dB, and the decay times now match (the old cymbal's tail was about three times too short).
+  `CYMBAL_FIT.legacy = true` (set before building the Engine) restores the Rust cymbal.
 - The clap and the mixer run in double precision instead of single precision.
 - The Rust `Engine` also ticks an older unused oscillator bank; the port leaves it out.
 - Meters are a plain `Float32Array` (`engine.meters`) instead of atomics.
