@@ -19,7 +19,8 @@ the output matches it to within floating-point rounding (see Tests).
 | `voices/snare.js` | `Snare` | `sd.rs` |
 | `voices/tom-808.js` | `Tom808`, toms and congas laid out like the TR-808 boards (used by default) | |
 | `voices/tom.js` | `Tom` plus the `LOW`, `MID`, `HIGH` specs (the Rust toms, `TOM_FIT.legacy = true`) | `tom.rs` |
-| `voices/rimshot.js` | `RimShot` (rim shot or claves) | `rs.rs` |
+| `voices/rim-808.js` | `Rim808`, rim shot or claves laid out like the TR-808 board (used by default) | |
+| `voices/rimshot.js` | `RimShot` (the Rust rim shot, `RIM_FIT.legacy = true`) | `rs.rs` |
 | `voices/clap-808.js` | `Clap808`, hand clap or maracas laid out like the TR-808 board (used by default) | |
 | `voices/clap.js` | `Clap` (the Rust clap, `CLAP_FIT.legacy = true`) | clap block in `synth.rs` |
 | `voices/cowbell.js` | `Cowbell` | `cb.rs` |
@@ -188,6 +189,16 @@ beat uses only a few percent of one CPU core.
   tom 7.7 to 8.0, congas 10.4 / 7.1 / 8.9 to 6.3 / 5.6 / 7.2. Knobs, centred = as built: Tune
   sweeps the pot's range, Decay scales the ring time (x1/3 to x3), Attack the tom noise, Filter
   its low-pass. `TOM_FIT.legacy = true` restores the Rust toms.
+- The rim shot and claves are rebuilt along the lines of the TR-808's rim shot / claves board
+  (`voices/rim-808.js`). Rim shot: two resonators (about 470 Hz and 1.9 kHz) drive the "swing"
+  VCA, whose collector the tones pull down but never below a fast envelope, which chops them
+  into the woody click; then a resonant ~590 Hz high-pass and the mute FET. Claves: one ~2.5 kHz
+  resonator, cut by the mute timer, with a little leak past it and the FET's thump. Constants are
+  fitted to a component-level simulation of the board (decay, pitch and click settings) and to
+  the recordings. Spectrogram error against the recordings: rim shot 8.4 to 2.8 dB, claves 8.6
+  to 8.1. Knobs, centred = as built: Tune moves the pitch, Decay the envelope and mute timer;
+  rim shot only, Osc 1 / Osc 2 set the two resonator levels, Res the drive into the VCA, and
+  Filter raises the high-pass (0 = as built). `RIM_FIT.legacy = true` restores the Rust rim shot.
 - The Rust clap (legacy) and the mixer run in double precision instead of single precision.
 - The Rust `Engine` also ticks an older unused oscillator bank; the port leaves it out.
 - Meters are a plain `Float32Array` (`engine.meters`) instead of atomics.

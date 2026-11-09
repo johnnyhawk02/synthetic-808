@@ -4,10 +4,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import * as D from '../index.js';
 
-D.SNARE_FIT.legacy = true; // the Rust app's snare, cymbal, clap and toms, before fitting them to the 808 recordings
+D.SNARE_FIT.legacy = true; // the Rust app's snare, cymbal, clap, toms and rim shot, before fitting them to the 808 recordings
 D.CYMBAL_FIT.legacy = true;
 D.CLAP_FIT.legacy = true;
 D.TOM_FIT.legacy = true;
+D.RIM_FIT.legacy = true;
 
 const dir = process.argv[2];
 const load = (n) => { const b = fs.readFileSync(path.join(dir, n + '.bin')); return new Float64Array(b.buffer, b.byteOffset, b.length / 8); };
