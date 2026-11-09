@@ -103,7 +103,7 @@ function makeKnob(id, label) {
   const span = max - min;
   dial.setAttribute('aria-valuemin', String(min));
   dial.setAttribute('aria-valuemax', String(max));
-  // arc marking the original 0..1 range on the dial's 270° sweep
+  // arc marking the 0..1 range on the dial's 270° sweep
   const a0 = -135 + ((0 - min) / span) * 270, a1 = -135 + ((1 - min) / span) * 270;
   dial.style.setProperty('--a0', `${a0}deg`);
   dial.style.setProperty('--a1', `${a1 - a0}deg`);

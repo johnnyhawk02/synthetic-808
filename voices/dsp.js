@@ -1,4 +1,4 @@
-// Small helpers shared by the drum voices (ported from the Rust app in ../app/src).
+// Small helpers shared by the drum voices (ported from the synthetic-808 Rust app).
 
 /** sign(x)·|x|^e, returning 0 when the result isn't finite. */
 export function sgnpow(x, e) {

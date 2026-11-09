@@ -1,4 +1,4 @@
-// Every control the panel exposes, with defaults (port of app/src/params.rs). Values are 0..1.
+// Every control the panel exposes, with defaults (port of app/src/params.rs). Knobs span 0..1 by default.
 
 export const PARAMS = [
   ['TRG_VOL', 0.0], ['TRG_WIDTH', 0.5], ['AC_LEVEL', 0.0],
@@ -25,9 +25,9 @@ export const DEFAULTS = Object.freeze(Object.fromEntries(PARAMS.map((p) => [p.id
 export const SWITCHES = Object.freeze(['SD_SW', 'LT_SW', 'MT_SW', 'HT_SW', 'RS_SW', 'HC_SW', 'CB_SW', 'MAIN_VCA']);
 
 /**
- * Allowed range for each parameter. The original panel spans 0..1; these extended ranges
+ * Allowed range for each parameter. The standard knob span is 0..1; these extended ranges
  * are for sound tuning and were checked to keep every voice finite and stable
- * (see test/ranges.mjs). Values outside 0..1 are not what the original hardware offers.
+ * (see test/ranges.mjs).
  */
 const EXT = { min: -0.5, max: 2 };
 const LEVEL = { min: 0, max: 2 };

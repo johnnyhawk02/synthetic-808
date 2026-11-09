@@ -1,4 +1,4 @@
-// Drum voice synth, JavaScript port of the Rust app in ../app/src.
+// Drum voice synth, JavaScript port of the synthetic-808 Rust app.
 // Each voice is a standalone class you can drive sample by sample; Engine mixes all twelve.
 
 export { Engine, VOICES, VOICE_INDEX } from './engine.js';

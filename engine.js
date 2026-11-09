@@ -21,9 +21,9 @@ export const VOICE_INDEX = Object.freeze(Object.fromEntries(VOICES.map((v, i) =>
 
 export const SAT_GAIN = 1.17647;
 export const OUT_HP_HZ = 42.0;
-// Output scales calibrated so each voice's peak matches the original at default settings.
+// Per-voice output scales that balance the kit at default settings.
 const BD_POST_GAIN = 0.0625;
-const SD_COLOR = 0.25; // hidden SD_COLOR default
+const SD_COLOR = 0.25; // snare noise colour
 const SD_POST_GAIN = 0.069;
 const TOM_POST_GAIN = [0.0513, 0.0457, 0.0393];
 const RS_POST_GAIN = 0.0473;

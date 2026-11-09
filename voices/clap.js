@@ -1,6 +1,5 @@
 // Hand clap / maracas (port of the clap block inside app/src/synth.rs).
-// The clap's burst count, spacing and envelope times are estimates (see MECHANICS.md);
-// the modal "room" uses the original's resonator frequencies.
+// Noise bursts through band-pass and high-pass filters, plus a modal "room" of 11 resonators.
 
 import { XorShift32 } from './dsp.js';
 

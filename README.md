@@ -58,7 +58,7 @@ const { closed, open } = hats.tick(m.hi, 0.5, 0.5);
 ```
 
 The raw voice outputs are large (peaks around 5 to 20). `Engine` applies the per-voice scales
-that were calibrated against the original, so use it unless you want to mix yourself.
+that balance the kit, so use it unless you want to mix yourself.
 
 ## Using the whole kit
 
@@ -91,9 +91,9 @@ node.port.postMessage({ type: 'transport', playing: true, bpm: 120, swing: 0.1 }
 
 ### Tuning on the webpage
 
-The knobs go past the original 0..1 range (see `RANGES` in `params.js`; most run from −0.5 to 2,
+The knobs go past the standard 0..1 range (see `RANGES` in `params.js`; most run from −0.5 to 2,
 and a few stop earlier where that voice becomes unstable). The orange arc on each dial marks the
-original span. `npm test` checks every parameter at both ends of its range.
+0..1 span. `npm test` checks every parameter at both ends of its range.
 
 - **Save as default** stores the current knobs in this browser, and they load every time.
 - **Copy settings** puts all the knob values on the clipboard as JSON. **Paste settings** loads JSON back.

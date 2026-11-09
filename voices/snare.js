@@ -10,7 +10,7 @@ import { sgnpow, histLen, XorShift64 } from './dsp.js';
  * @property {number} decay   SD_DECAY
  * @property {number} ndec    SD_NDEC
  * @property {boolean} modelHi  SD_SW > 0.5
- * @property {number} color   hidden SD_COLOR, default 0.25
+ * @property {number} color   noise colour, default 0.25
  */
 
 export const SNARE_DEFAULT_KNOBS = Object.freeze({

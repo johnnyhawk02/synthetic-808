@@ -21,7 +21,7 @@ class Bq {
 
 /**
  * Decay range requested for the app: DEC spans 350 ms (0) to 1,200 ms (1), measured as the
- * time to fall 40 dB. The original's envelopes give 180 + 260·d − 100·d² ms, so every
+ * time to fall 40 dB. Unstretched, the envelopes give 180 + 260·d − 100·d² ms, so every
  * envelope time is stretched by the ratio.
  */
 export function stretchFor(dec) {
@@ -32,7 +32,7 @@ export function stretchFor(dec) {
 export class Cymbal {
   constructor(sr) {
     this.sr = sr;
-    /** stretch applied to every envelope time (1 = the original's times) */
+    /** stretch applied to every envelope time (1 = unstretched) */
     this.stretch = 1;
     this.gateLeft = 0; this.trigVal = 0; this.vel = 1;
     this.hist = new Float64Array(histLen(sr));

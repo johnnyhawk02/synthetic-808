@@ -2,7 +2,7 @@
 
 import { sgnpow, clamp, histLen } from './dsp.js';
 
-/** Hidden parameter BD_BASE (range 49..69, default 56). */
+/** Base tuning value (default 56). */
 export const BD_BASE = 56.0;
 /** Length of the trigger gate the voice receives (ms). */
 const GATE_MS = 1.0;

@@ -34,7 +34,7 @@ class Pulse {
 /** Metal oscillator periods (ms) for 205.35, 304.4, 369.72, 522.7, 540.54, 800 Hz. */
 const SM_MS = [4.869810045, 3.285189867, 2.705450058, 1.913139969, 1.850000024, 1.25];
 export const CB_HZ = [540.54, 800.0];
-/** hidden HH_POW / CB_POW default */
+/** shaping exponent for the DUTY, VOLT, CB_PW and CB_TUNE knobs */
 const HH_POW = 2.33;
 
 class Biquad {
@@ -93,7 +93,6 @@ export class Metal {
     const low = this.low;
     let sum = 0;
     for (let i = 0; i < 6; i++) {
-      // the hidden SM1..SM6 equal their defaults, so the ratio is 1
       const f = this.osc[i].step(ms * SM_MS[i] * voltF, duty);
       low[i] = 1 - f;
       sum += low[i];
