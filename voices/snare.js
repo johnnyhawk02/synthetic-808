@@ -1,5 +1,9 @@
-// Snare drum (port of app/src/sd.rs, "hi" model). Two rotating resonators at 170 and
-// 334 Hz plus a noise path through a state-variable filter.
+// Snare drum (from app/src/sd.rs, "hi" model). Two rotating resonators at about 172 and
+// 340 Hz plus a noise path through a state-variable filter.
+//
+// The tone balance, noise level, noise colour and decay are fitted to the 25 TR-808 snare
+// recordings in samples/808/SD (Tone and Snappy at 0, 2.5, 5, 7.5 and 10). Set
+// SNARE_FIT.legacy = true for the Rust app's snare, sample for sample.
 
 import { sgnpow, histLen, XorShift64 } from './dsp.js';
 
@@ -16,6 +20,29 @@ export const SNARE_DEFAULT_KNOBS = Object.freeze({
   tone: 0.5, snappy: 0.5, decay: 0.5, ndec: 0.5, color: 0.25,
 });
 
+/** Tunable constants, fitted to recordings of a TR-808 snare (SD files in samples/808). */
+export const SNARE_FIT = {
+  legacy: false,                // true: the Rust app's snare (ignores everything below)
+  fa: 165.2, fb: 331.1,         // resonator base frequencies, Hz
+  lowDbPerTone: -13.5,          // low resonator level change from Tone 0 to 1, dB
+  highDbPerTone: 16.3,          // high resonator level change from Tone 0 to 1, dB
+  highTrim: 1.33,               // high resonator level at Tone 0.5
+  tabB: -0.0021,                // high resonator extra damping per sample
+  snappy: [0, 0.266, 2.92, 5.69, 8.13], // noise gain at Snappy 0, 0.25, 0.5, 0.75, 1
+  noiseDecay: 0.88,             // noise envelope time scale
+  noiseHpHz: 3000,              // noise high-pass (state-variable filter), Hz
+  noiseLp1Hz: 4500,             // noise low-pass, first pole, Hz
+  noiseLpHz: 5000,              // noise low-pass, second pole, Hz
+  noiseGain: 0.676,
+};
+
+function snappyGain(s) {
+  const t = SNARE_FIT.snappy;
+  const x = s * 4;
+  const i = Math.min(Math.max(Math.floor(x), 0), 3);
+  return t[i] + (t[i + 1] - t[i]) * (x - i);
+}
+
 export class Snare {
   constructor(sr) {
     this.sr = sr;
@@ -27,7 +54,7 @@ export class Snare {
     this.envN = 0; this.e2 = 0; this.prevGv = 0;
     this.p2 = 0; this.p3 = 0;
     this.ic1 = 0; this.ic2 = 0;
-    this.nLp = 0; this.prevGv2 = 0;
+    this.nLp = 0; this.nLp2 = 0; this.prevGv2 = 0;
     this.e0 = 0; this.e1 = 0;
     this.aA = 0; this.bA = 0; this.aB = 0; this.bB = 0;
     this.lpOut = 0;
@@ -38,16 +65,16 @@ export class Snare {
   /** Block-rate coefficients; call when the knobs change (once per block is fine). */
   prepare(k) {
     const sr = this.sr;
-    const snapG = sgnpow(k.snappy, 1.2);
     const pN = (k.snappy - 0.5) * 2 * -0.1 + 2.5;
     const ndecP = pN !== 1 ? sgnpow(k.ndec, pN) : k.ndec;
-    const nT = ndecP * 3.111 + 0.555;
+    const F = SNARE_FIT, L = !!F.legacy;
+    const nT = (ndecP * 3.111 + 0.555) * (L ? 1 : F.noiseDecay);
     const cN1 = Math.exp(-1 / (0.0288 * nT * sr));
     const c10ms = Math.exp(-1 / (0.01 * sr));
     const colorK = k.color * 0.4 + 0.8;
     const cN2 = Math.exp(-1 / ((k.snappy * 0.1 + 0.133) * sr * nT));
     const kq = 1 / ((2 - colorK) * 0.7);
-    const g = Math.tan(3015 * colorK * Math.PI / sr);
+    const g = Math.tan((L ? 3015 : F.noiseHpHz) * colorK * Math.PI / sr);
     const invSr = 1 / sr;
     const alpha = invSr / (invSr + 1.034817575e-4);
     const dec1 = sgnpow(k.decay, 1.1);
@@ -55,8 +82,17 @@ export class Snare {
     const td = (0.07 + 1.666 * dec4) * sr;
     let r1 = 1, r2 = 1;
     if (td !== 0) { r1 = Math.exp(-4.5 / td); r2 = Math.exp(-3 / td); }
-    const toneP = sgnpow(k.tone, 1.2);
-    const toneT = toneP * 0.8 + 0.1;
+    let toneT, toneR;
+    if (L) {
+      toneT = sgnpow(k.tone, 1.2) * 0.8 + 0.1;
+      toneR = 1 - toneT;
+    } else {
+      // levels in dB are linear in the knob on the machine; limit the extended range
+      const tone = Math.min(Math.max(k.tone, -0.5), 1.5) - 0.5;
+      toneR = 0.552 * 10 ** (F.lowDbPerTone * tone / 20);
+      toneT = 0.448 * F.highTrim * 10 ** (F.highDbPerTone * tone / 20);
+    }
+    const onePole = (hz) => 1 - Math.exp(-2 * Math.PI * hz / sr);
     this.co = {
       cN1, c10ms, cN2, colorK, g,
       negGk: -(kq + g),
@@ -67,8 +103,14 @@ export class Snare {
       dampA: 3 - 2.112 * dec1,
       dampB: 3 - 2.667 * dec1,
       toneT,
-      toneR: 1 - toneT,
-      snapK: snapG * 1.222,
+      toneR,
+      snapK: (L ? sgnpow(k.snappy, 1.2) : snappyGain(k.snappy)) * 1.222,
+      nlp: L ? 1 : onePole(F.noiseLpHz),
+      nlp1: L ? alpha : onePole(F.noiseLp1Hz),
+      nGain: L ? 20 : 20 * F.noiseGain,
+      fa: L ? 170 : F.fa,
+      fb: L ? 334 : F.fb,
+      tabB: L ? -0.001500000013038516 : F.tabB,
       e2Mix: k.snappy * 0.0001 + 0.0005,
     };
   }
@@ -88,8 +130,9 @@ export class Snare {
 
     this.balS += (bal - this.balS) * 0.0303030303;
     const balP = sgnpow(this.balS, 1.05);
-    const fa = 170;
-    const fb = 334;
+    const c = this.co;
+    const fa = c.fa;
+    const fb = c.fb;
     const freqA = (1.25 - 0.5 * balP) * fa;
     const freqB = (this.balS * 0.67 + 0.66) * fb;
     this.pitchS += (pitch - this.pitchS) * 0.0303030303;
@@ -101,7 +144,6 @@ export class Snare {
     this.prevTa = ta;
     const gv = this.g * this.vel * 1.2;
 
-    const c = this.co;
     const gvt = 0.1 < gv ? gv : 0;
     const coef = this.envN < gvt ? c.c10ms : c.cN1;
     this.e2 = gv > 0.1 && this.prevGv <= 0.1 ? gv : this.e2 * c.cN2;
@@ -130,18 +172,19 @@ export class Snare {
 
     const sa = Math.sin(wa), ca = Math.cos(wa);
     const ya = c.r1 * (this.bA * ca + this.aA * sa) - xexc;
-    this.nLp += (hp - this.nLp) * c.alpha;
+    this.nLp += (hp - this.nLp) * c.nlp1;
     const tabA = -0.000199999994947575;
     const ya2 = ya + ya * tabA * c.dampA;
     const oscA = (ya2 * 0.2 + xexc * -0.2) * c.toneR;
-    const nOut = this.nLp * 20 * c.colorK;
+    this.nLp2 += (this.nLp - this.nLp2) * c.nlp;
+    const nOut = this.nLp2 * c.nGain * c.colorK;
 
     const sb = Math.sin(wb), cb = Math.cos(wb);
     const click = gv * 0.12;
     const yb = c.r2 * (this.bB * cb - this.aB * sb) + click;
     const aA2 = c.r1 * (this.aA * ca - this.bA * sa);
     const aB2 = c.r2 * (this.aB * cb + this.bB * sb);
-    const tabB = -0.001500000013038516;
+    const tabB = c.tabB;
     const yb2 = yb + tabB * yb * c.dampB;
     const t = (yb2 * -0.3 + click * -0.2) * c.toneT + oscA;
     this.lpOut += (t - this.lpOut) * c.alpha;

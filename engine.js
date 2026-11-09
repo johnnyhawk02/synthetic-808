@@ -4,7 +4,7 @@
 import { Params } from './params.js';
 import { Metal } from './voices/metal.js';
 import { BassDrum } from './voices/bass-drum.js';
-import { Snare } from './voices/snare.js';
+import { Snare, SNARE_FIT } from './voices/snare.js';
 import { Tom, LOW, MID, HIGH } from './voices/tom.js';
 import { RimShot } from './voices/rimshot.js';
 import { Clap } from './voices/clap.js';
@@ -25,6 +25,7 @@ export const OUT_HP_HZ = 42.0;
 const BD_POST_GAIN = 0.0625;
 const SD_COLOR = 0.25; // snare noise colour
 const SD_POST_GAIN = 0.069;
+const SD_FIT_GAIN = 0.0555; // the fitted snare is about 2 dB louder; keep the kit balance
 const TOM_POST_GAIN = [0.0513, 0.0457, 0.0393];
 const RS_POST_GAIN = 0.0473;
 const CB_POST_GAIN = 0.0446;
@@ -186,7 +187,7 @@ export class Engine {
     });
     const bd = [p.get('BD_TUNE'), p.get('BD_ATK'), p.get('BD_DEC'), p.get('BD_PAMT'), p.get('BD_VOL')];
     const sdBal = p.get('SD_BAL'), sdPitch = p.get('SD_PITCH');
-    const sdLevel = sgnpow(p.get('SD_VOL'), 1.12) * SD_POST_GAIN;
+    const sdLevel = sgnpow(p.get('SD_VOL'), 1.12) * (SNARE_FIT.legacy ? SD_POST_GAIN : SD_FIT_GAIN);
     const tomK = TOM_KEYS.map((k, i) => ({
       lv: sgnpow(p.get(k[0]), 1.12) * TOM_POST_GAIN[i],
       tune: p.get(k[1]), dec: p.get(k[2]), atk: p.get(k[3]), flt: p.get(k[4]),

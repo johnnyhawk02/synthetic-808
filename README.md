@@ -146,12 +146,18 @@ beat uses only a few percent of one CPU core.
 - `npm test` checks that every voice, and each alternate mode, sounds and stays finite and bounded,
   and that every parameter stays stable at both ends of its extended range.
 - `npm run test:rust` (needs Rust, and `synthetic-808` checked out next to this repo) renders
-  reference audio from `synthetic-808/app/src` and compares the JS (at 1x) against it. Last run: the individual voices matched to about 1e-13 of their peak at 44.1 and
+  reference audio from `synthetic-808/app/src` and compares the JS (at 1x, with the legacy snare) against it. Last run: the individual voices matched to about 1e-13 of their peak at 44.1 and
   48 kHz, normal and accented. The full engine matched to about 1e-6, and the clap to about 1e-4,
   because the Rust mixer and clap run in single precision.
 
 ## Differences from the Rust
 
+- The snare is refitted to the TR-808 recordings in `samples/808/SD`: the noise is much louder
+  and darker (Snappy follows the machine's curve), Tone crossfades the two resonators the way
+  the machine's knob does, and the upper resonator dies away faster. Across all 25 Tone/Snappy
+  recordings the spectrogram error dropped from about 8 dB to 2.6 dB. The kit balance is kept
+  by lowering the snare's output gain. `SNARE_FIT.legacy = true` restores the Rust snare
+  (the Rust comparison test does this).
 - The clap and the mixer run in double precision instead of single precision.
 - The Rust `Engine` also ticks an older unused oscillator bank; the port leaves it out.
 - Meters are a plain `Float32Array` (`engine.meters`) instead of atomics.
