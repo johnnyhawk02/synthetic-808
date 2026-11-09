@@ -5,7 +5,7 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "test": "node test/smoke.mjs",
+    "test": "node test/smoke.mjs && node test/ranges.mjs",
     "test:rust": "cd test/rust-reference && cargo run --release -q && cd ../.. && node test/compare-rust.mjs test/rust-reference/out"
   }
 }

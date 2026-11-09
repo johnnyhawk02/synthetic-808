@@ -102,6 +102,23 @@ export class Engine {
     }
   }
 
+  /** Rebuild one voice's DSP state (used when extreme settings make it unstable). */
+  _resetVoice(i) {
+    const sr = this.sr;
+    this.resets = (this.resets || 0) + 1;
+    switch (i) {
+      case 1: this.bass = new BassDrum(sr); break;
+      case 2: this.snare = new Snare(sr); break;
+      case 3: case 4: case 5:
+        this.toms[i - 3] = new Tom([LOW, MID, HIGH][i - 3], sr, 0x1111 * (i - 2)); break;
+      case 6: this.rim = new RimShot(sr); break;
+      case 7: this.clap = new Clap(sr, 0x12345678); break;
+      case 8: this.cowbell = new Cowbell(sr); this.metal = new Metal(sr); break;
+      case 9: this.cymbal = new Cymbal(sr); this.metal = new Metal(sr); break;
+      case 10: case 11: this.hats = new Hats(sr); this.metal = new Metal(sr); break;
+    }
+  }
+
   /**
    * Fill `out` (Float32Array). With channels > 1 the buffer is interleaved and every
    * channel gets the same mono signal. Pass channels = 1 for a mono buffer.
@@ -166,6 +183,12 @@ export class Engine {
       const hats = this.hats.tick(mo.hi, chDec, ohDec);
       v[10] = hats.open * ohLevel;
       v[11] = hats.closed * chLevel;
+
+      // safety net for extreme knob settings: a voice that blows up is reset instead of
+      // leaving the whole kit stuck on NaN
+      for (let i = 1; i < 12; i++) {
+        if (!(Math.abs(v[i]) < 1e4)) { this._resetVoice(i); v[i] = 0; }
+      }
 
       let sum = 0;
       for (let i = 0; i < 12; i++) {

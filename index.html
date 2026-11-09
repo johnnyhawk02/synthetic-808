@@ -27,6 +27,16 @@
 </header>
 
 <main>
+  <section class="sound-bar" aria-label="Sound settings">
+    <p class="hint">Knobs go past their original range for tuning; the orange arc on each dial marks the original 0 to 1 span. Drag, scroll or use the arrow keys, hold <kbd>Shift</kbd> for fine moves, double-click for the default. A dot marks knobs moved from the default.</p>
+    <div class="actions">
+      <button id="save-default" class="primary">Save as default</button>
+      <button id="copy-settings">Copy settings</button>
+      <button id="load-settings">Paste settings</button>
+      <button id="reset-settings">Reset to default</button>
+      <button id="factory-settings">Factory reset</button>
+    </div>
+  </section>
   <section class="panel" id="panel" aria-label="Voices"></section>
   <section class="seq-wrap" aria-label="Sequencer">
     <div class="seq-head">
@@ -41,6 +51,7 @@
   <p>Sound engine: <a href="https://github.com/johnnyhawk02/synthetic-808">synthetic-808</a>, plain ES modules running in an AudioWorklet.</p>
 </footer>
 
+<div id="toast" class="toast" role="status" hidden></div>
 <script type="module" src="demo/app.js"></script>
 </body>
 </html>

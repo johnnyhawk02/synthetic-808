@@ -99,6 +99,35 @@ main { max-width: 1400px; margin: 0 auto; padding: 0 24px 24px; }
 
 footer { max-width: 1400px; margin: 0 auto; padding: 0 24px 32px; color: var(--muted); font-size: 12px; }
 
+/* range arc and value readout */
+.knob .dial::before {
+  content: ""; position: absolute; inset: -5px; border-radius: 50%; pointer-events: none;
+  background: conic-gradient(from var(--a0, 45deg), var(--accent) 0 var(--a1, 270deg), transparent 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+  opacity: 0.7;
+}
+.knob output { font: 10px ui-monospace, monospace; color: var(--muted); min-height: 13px; }
+.knob.out output { color: var(--accent-2); }
+.knob.changed label::after { content: " •"; color: var(--accent); }
+
+.sound-bar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px;
+  margin-bottom: 12px; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.sound-bar .hint { flex: 1 1 360px; }
+.actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.actions button {
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; font-size: 12px;
+}
+.actions button:hover { border-color: var(--muted); }
+.actions button.primary { background: var(--accent); color: #1a1208; border-color: var(--accent); font-weight: 700; }
+.toast {
+  position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); max-width: calc(100% - 32px);
+  background: #f1efe8; color: #1b1b1b; padding: 10px 16px; border-radius: 8px; box-shadow: 0 6px 20px #0008; font-weight: 500;
+}
+.toast[hidden] { display: none; }
+
 @media (max-width: 640px) {
   .top { padding: 16px 16px 12px; }
   main { padding: 0 16px 16px; }

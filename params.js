@@ -21,7 +21,33 @@ export const PARAMS = [
 
 export const DEFAULTS = Object.freeze(Object.fromEntries(PARAMS.map((p) => [p.id, p.default])));
 
-/** Parameter store: plain object of id → value (0..1), clamped on set. */
+/** Two-position switches: always 0 or 1. */
+export const SWITCHES = Object.freeze(['SD_SW', 'LT_SW', 'MT_SW', 'HT_SW', 'RS_SW', 'HC_SW', 'CB_SW', 'MAIN_VCA']);
+
+/**
+ * Allowed range for each parameter. The original panel spans 0..1; these extended ranges
+ * are for sound tuning and were checked to keep every voice finite and stable
+ * (see test/ranges.mjs). Values outside 0..1 are not what the original hardware offers.
+ */
+const EXT = { min: -0.5, max: 2 };
+const LEVEL = { min: 0, max: 2 };
+const EXT_OVERRIDES = {
+  TRG_VOL: { min: 0, max: 1.5 }, AC_LEVEL: LEVEL,
+  BD_VOL: LEVEL, BD_ATK: { max: 1.5 }, BD_DEC: { min: 0 },
+  SD_VOL: LEVEL, SD_DECAY: { max: 1.1 },
+  LT_VOL: LEVEL, MT_VOL: LEVEL, HT_VOL: LEVEL,
+  RS_VOL: LEVEL, RS_DEC: { min: 0 }, RS_RES: { min: -0.25 },
+  HC_VOL: { min: 0, max: 1.5 },
+  CB_VOL: LEVEL, CB_DEC: { max: 1.5 },
+  RC_VOL: LEVEL, OH_VOL: LEVEL, CH_VOL: LEVEL,
+  DRIVE: LEVEL, MST_VOL: { min: 0, max: 1.5 },
+};
+export const RANGES = Object.freeze(Object.fromEntries(PARAMS.map(({ id }) => [
+  id,
+  Object.freeze(SWITCHES.includes(id) ? { min: 0, max: 1 } : { ...EXT, ...EXT_OVERRIDES[id] }),
+])));
+
+/** Parameter store: plain object of id → value, clamped to RANGES on set. */
 export class Params {
   constructor(values = {}) {
     this.values = { ...DEFAULTS };
@@ -34,7 +60,8 @@ export class Params {
   }
   set(id, v) {
     if (!(id in DEFAULTS)) throw new Error(`unknown parameter ${id}`);
-    this.values[id] = Math.min(Math.max(+v, 0), 1);
+    const r = RANGES[id];
+    this.values[id] = Math.min(Math.max(+v, r.min), r.max);
   }
   static defaultOf(id) { return DEFAULTS[id]; }
 }

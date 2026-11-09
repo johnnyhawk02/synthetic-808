@@ -25,7 +25,7 @@ the output matches it to within floating-point rounding (see Tests).
 | `voices/hats.js` | `Hats` (closed and open) | `hats.rs` |
 | `voices/metal.js` | `Metal`, the shared oscillator bank feeding cowbell, cymbal and hats | `metal.rs` |
 | `voices/dsp.js` | shared helpers (noise generators, `sgnpow`) | |
-| `params.js` | parameter ids and defaults, `Params` store | `params.rs` |
+| `params.js` | parameter ids, defaults and allowed ranges, `Params` store | `params.rs` |
 | `engine.js` | `Engine`: triggers, levels, accent, master drive/VCA/high-pass | `Engine` in `synth.rs` |
 | `worklet.js` | AudioWorklet processor wrapping `Engine`, with a sample-accurate step sequencer | `audio.rs` |
 | `index.html`, `demo/` | the webpage | |
@@ -89,6 +89,18 @@ node.port.postMessage({ type: 'pattern', steps });
 node.port.postMessage({ type: 'transport', playing: true, bpm: 120, swing: 0.1 });
 ```
 
+### Tuning on the webpage
+
+The knobs go past the original 0..1 range (see `RANGES` in `params.js`; most run from −0.5 to 2,
+and a few stop earlier where that voice becomes unstable). The orange arc on each dial marks the
+original span. `npm test` checks every parameter at both ends of its range.
+
+- **Save as default** stores the current knobs in this browser, and they load every time.
+- **Copy settings** puts all the knob values on the clipboard as JSON. **Paste settings** loads JSON back.
+- To make settings the default for everyone, put the copied JSON in `demo/defaults.json` and commit it.
+  The page loads the library defaults, then `demo/defaults.json`, then anything saved in the browser.
+- **Reset to default** returns the knobs to your defaults; **Factory reset** forgets the browser's saved ones.
+
 To try the page locally, serve the repo folder, for example with `python3 -m http.server`, and open
 http://localhost:8000.
 
@@ -96,7 +108,8 @@ The files must be served over http(s), since worklets can't load modules from `f
 
 ## Tests
 
-- `npm test` checks that every voice, and each alternate mode, sounds and stays finite and bounded.
+- `npm test` checks that every voice, and each alternate mode, sounds and stays finite and bounded,
+  and that every parameter stays stable at both ends of its extended range.
 - `npm run test:rust` (needs Rust, and `synthetic-808` checked out next to this repo) renders
   reference audio from `synthetic-808/app/src` and compares the JS against it. Last run: the individual voices matched to about 1e-13 of their peak at 44.1 and
   48 kHz, normal and accented. The full engine matched to about 1e-6, and the clap to about 1e-4,

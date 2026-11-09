@@ -2,7 +2,7 @@
 // Each voice is a standalone class you can drive sample by sample; Engine mixes all twelve.
 
 export { Engine, VOICES, VOICE_INDEX } from './engine.js';
-export { Params, PARAMS, DEFAULTS } from './params.js';
+export { Params, PARAMS, DEFAULTS, RANGES, SWITCHES } from './params.js';
 export { Metal } from './voices/metal.js';
 export { BassDrum, skewBdTune, BD_BASE } from './voices/bass-drum.js';
 export { Snare } from './voices/snare.js';

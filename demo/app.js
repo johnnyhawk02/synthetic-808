@@ -1,5 +1,5 @@
 // The demo page: pads, knobs and a 16-step sequencer driving the drum engine in an AudioWorklet.
-import { DEFAULTS } from '../params.js';
+import { DEFAULTS, RANGES } from '../params.js';
 import { VOICE_INDEX } from '../engine.js';
 
 // Panel layout: voice → knobs [param, label] and optional switch [param, offLabel, onLabel].
@@ -35,8 +35,34 @@ const PRESETS = {
   clear: {},
 };
 
+// ---- defaults ----
+// Library defaults (params.js), overridden by demo/defaults.json (committed to the repo),
+// overridden by whatever this browser saved with "Save as default".
+const STORE_KEY = 'synthetic808.defaults.v1';
+let repoDefaults = {};
+try {
+  const r = await fetch(new URL('./defaults.json', import.meta.url), { cache: 'no-cache' });
+  if (r.ok) repoDefaults = clean(await r.json());
+} catch { /* no repo defaults */ }
+function readSaved() {
+  try { return clean(JSON.parse(localStorage.getItem(STORE_KEY) || '{}')); } catch { return {}; }
+}
+/** keep only known parameter ids with numeric values, clamped to their range */
+function clean(obj) {
+  const out = {};
+  for (const [id, v] of Object.entries(obj || {})) {
+    if (id in DEFAULTS && typeof v === 'number' && Number.isFinite(v)) {
+      out[id] = Math.min(Math.max(v, RANGES[id].min), RANGES[id].max);
+    }
+  }
+  return out;
+}
+const factoryDefaults = () => ({ ...DEFAULTS, ...repoDefaults });
+let defaults = { ...factoryDefaults(), ...readSaved() };
+
 // ---- state ----
-const params = { ...DEFAULTS };
+const params = { ...defaults };
+const controls = {}; // id → set(value) for every knob and switch
 let pattern = Array.from({ length: 16 }, () => new Array(12).fill(0));
 let ctx = null, node = null, playing = false;
 
@@ -70,16 +96,30 @@ function makeKnob(id, label) {
   dial.setAttribute('aria-valuemax', '100');
   const lab = document.createElement('label');
   lab.textContent = label;
-  wrap.append(dial, lab);
+  const val = document.createElement('output');
+  wrap.append(dial, lab, val);
 
+  const { min, max } = RANGES[id];
+  const span = max - min;
+  dial.setAttribute('aria-valuemin', String(min));
+  dial.setAttribute('aria-valuemax', String(max));
+  // arc marking the original 0..1 range on the dial's 270° sweep
+  const a0 = -135 + ((0 - min) / span) * 270, a1 = -135 + ((1 - min) / span) * 270;
+  dial.style.setProperty('--a0', `${a0}deg`);
+  dial.style.setProperty('--a1', `${a1 - a0}deg`);
   const set = (v) => {
-    v = Math.min(Math.max(v, 0), 1);
+    v = Math.min(Math.max(v, min), max);
+    v = Math.round(v * 1000) / 1000;
     params[id] = v;
-    dial.style.setProperty('--rot', `${-135 + v * 270}deg`);
-    dial.setAttribute('aria-valuenow', String(Math.round(v * 100)));
-    dial.title = `${label}: ${Math.round(v * 100)}`;
+    dial.style.setProperty('--rot', `${-135 + ((v - min) / span) * 270}deg`);
+    dial.setAttribute('aria-valuenow', String(v));
+    dial.title = `${label}: ${v.toFixed(2)} (range ${min} to ${max}; double-click for default)`;
+    val.textContent = v.toFixed(2);
+    wrap.classList.toggle('out', v < 0 || v > 1);
+    wrap.classList.toggle('changed', Math.abs(v - defaults[id]) > 1e-9);
     send({ type: 'param', id, value: v });
   };
+  controls[id] = set;
   set(params[id]);
 
   let startY = 0, startV = 0;
@@ -90,10 +130,10 @@ function makeKnob(id, label) {
   });
   dial.addEventListener('pointermove', (e) => {
     if (!dial.hasPointerCapture(e.pointerId)) return;
-    const range = e.shiftKey ? 600 : 150;
-    set(startV + (startY - e.clientY) / range);
+    const px = e.shiftKey ? 600 : 150; // pixels per 0..1
+    set(startV + (startY - e.clientY) / px);
   });
-  dial.addEventListener('dblclick', () => set(DEFAULTS[id]));
+  dial.addEventListener('dblclick', () => set(defaults[id]));
   dial.addEventListener('wheel', (e) => { e.preventDefault(); set(params[id] - Math.sign(e.deltaY) * 0.02); }, { passive: false });
   dial.addEventListener('keydown', (e) => {
     const step = e.shiftKey ? 0.1 : 0.02;
@@ -116,6 +156,7 @@ function makeSwitch([id, off, on], onChange) {
     send({ type: 'param', id, value: v });
     onChange?.(v >= 0.5);
   };
+  controls[id] = set;
   bOff.onclick = () => set(0);
   bOn.onclick = () => set(1);
   el.append(bOff, bOn);
@@ -263,5 +304,70 @@ document.addEventListener('keydown', (e) => {
   const voice = KEYS[k] ?? KEYS[{ ':': ';', '"': "'" }[k]];
   if (voice) { e.preventDefault(); hit(voice, e.shiftKey); }
 });
+
+// ---- sound settings: save / copy / load / reset ----
+const toast = document.getElementById('toast');
+let toastTimer;
+function say(msg) {
+  toast.textContent = msg;
+  toast.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.hidden = true; }, 2600);
+}
+function applySettings(values) {
+  for (const [id, v] of Object.entries(values)) controls[id]?.(v);
+}
+function refreshChanged() {
+  for (const id of Object.keys(controls)) controls[id](params[id]);
+}
+function settingsJson() {
+  const out = {};
+  for (const id of Object.keys(controls)) out[id] = params[id];
+  return JSON.stringify(out, null, 2);
+}
+document.getElementById('save-default').onclick = () => {
+  const save = {};
+  for (const id of Object.keys(controls)) save[id] = params[id];
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(save));
+    defaults = { ...factoryDefaults(), ...save };
+    refreshChanged();
+    say('Saved. These knob positions now load by default in this browser.');
+  } catch {
+    say('This browser would not let the page save settings.');
+  }
+};
+document.getElementById('copy-settings').onclick = async () => {
+  const json = settingsJson();
+  try {
+    await navigator.clipboard.writeText(json);
+    say('Copied all knob settings to the clipboard as JSON.');
+  } catch {
+    window.prompt('Copy these settings:', json);
+  }
+};
+document.getElementById('load-settings').onclick = () => {
+  const text = window.prompt('Paste settings JSON:');
+  if (!text) return;
+  try {
+    const values = clean(JSON.parse(text));
+    if (!Object.keys(values).length) throw new Error('empty');
+    applySettings(values);
+    say(`Loaded ${Object.keys(values).length} settings. Use "Save as default" to keep them.`);
+  } catch {
+    say("That doesn't look like settings JSON.");
+  }
+};
+document.getElementById('reset-settings').onclick = () => {
+  applySettings(defaults);
+  say('Knobs back to your defaults.');
+};
+document.getElementById('factory-settings').onclick = () => {
+  if (!window.confirm('Forget the defaults saved in this browser and go back to the factory sound?')) return;
+  try { localStorage.removeItem(STORE_KEY); } catch { /* ignore */ }
+  defaults = factoryDefaults();
+  applySettings(defaults);
+  say('Back to the factory defaults.');
+};
 
 loadPreset('basic');
