@@ -19,7 +19,8 @@ the output matches it to within floating-point rounding (see Tests).
 | `voices/snare.js` | `Snare` | `sd.rs` |
 | `voices/tom.js` | `Tom` plus the `LOW`, `MID`, `HIGH` specs (tom or conga) | `tom.rs` |
 | `voices/rimshot.js` | `RimShot` (rim shot or claves) | `rs.rs` |
-| `voices/clap.js` | `Clap` (hand clap or maracas) | clap block in `synth.rs` |
+| `voices/clap-808.js` | `Clap808`, hand clap or maracas laid out like the TR-808 board (used by default) | |
+| `voices/clap.js` | `Clap` (the Rust clap, `CLAP_FIT.legacy = true`) | clap block in `synth.rs` |
 | `voices/cowbell.js` | `Cowbell` | `cb.rs` |
 | `voices/cymbal-808.js` | `Cymbal808`, the cymbal laid out like the TR-808 circuit and fitted to its recordings (used by default) | |
 | `voices/cymbal.js` | `Cymbal`, `stretchFor()` (the Rust cymbal, `CYMBAL_FIT.legacy = true`) | `cymbal.rs` |
@@ -166,6 +167,17 @@ beat uses only a few percent of one CPU core.
   recordings in `samples/808/CY`. Spectrogram error against the recordings dropped from about
   14 dB (Rust cymbal) to 3.2 dB, and the decay times match.
   `CYMBAL_FIT.legacy = true` (set before building the Engine) restores the Rust cymbal.
-- The clap and the mixer run in double precision instead of single precision.
+- The hand clap and maracas are rebuilt along the lines of the TR-808's clap / maracas board
+  (`voices/clap-808.js`). Clap: band-passed noise through a soft-clipping VCA, opened by a
+  sawtooth that restarts every ~11 ms inside the trigger's window (one clap per ramp) and falls
+  slowly after it, plus a slower "reverb" envelope on the same noise and a little sawtooth thump.
+  Maracas: noise through a gate that opens slowly, holds and snaps shut, then two high-passes.
+  The constants are fitted to a component-level simulation of the board across its decay,
+  spacing and reverb settings, and to the recordings. Spectrogram error against the recordings
+  dropped from about 11 dB to 5 dB for both. Knobs, all centred = as built: Offset sets the clap
+  spacing, Claps the window (how many claps), Decay the last clap, Tail and Rev the reverb's
+  decay and level, Filter its low-pass; for the maracas, Decay sets the gate length, Offset the
+  attack and Filter the high-pass tuning. `CLAP_FIT.legacy = true` restores the Rust clap.
+- The Rust clap (legacy) and the mixer run in double precision instead of single precision.
 - The Rust `Engine` also ticks an older unused oscillator bank; the port leaves it out.
 - Meters are a plain `Float32Array` (`engine.meters`) instead of atomics.

@@ -8,6 +8,7 @@ import { Snare, SNARE_FIT } from './voices/snare.js';
 import { Tom, LOW, MID, HIGH } from './voices/tom.js';
 import { RimShot } from './voices/rimshot.js';
 import { Clap } from './voices/clap.js';
+import { Clap808, CLAP_FIT } from './voices/clap-808.js';
 import { Cowbell } from './voices/cowbell.js';
 import { Cymbal, stretchFor } from './voices/cymbal.js';
 import { Cymbal808, CYMBAL_FIT } from './voices/cymbal-808.js';
@@ -60,7 +61,8 @@ export class Engine {
     this.accent = { left: 0, amp: 0 };
     this.bass = new BassDrum(sr);
     this.snare = new Snare(sr);
-    this.clap = new Clap(sr, 0x12345678);
+    this.clapLegacy = !!CLAP_FIT.legacy;
+    this.clap = this.clapLegacy ? new Clap(sr, 0x12345678) : new Clap808(sr, 0x12345678);
     const osr = sr * oversample, os = oversample;
     this.toms = [new Tom(LOW, osr, 0x1111, os), new Tom(MID, osr, 0x2222, os), new Tom(HIGH, osr, 0x3333, os)];
     this.rim = new RimShot(osr, os);
@@ -141,7 +143,7 @@ export class Engine {
       case 3: case 4: case 5:
         this.toms[i - 3] = new Tom([LOW, MID, HIGH][i - 3], osr, 0x1111 * (i - 2), os); break;
       case 6: this.rim = new RimShot(osr, os); break;
-      case 7: this.clap = new Clap(sr, 0x12345678); break;
+      case 7: this.clap = this.clapLegacy ? new Clap(sr, 0x12345678) : new Clap808(sr, 0x12345678); break;
       case 8: this.cowbell = new Cowbell(osr, os); this.metal = new Metal(osr, os); break;
       case 9: this.cymbal = this.cymbalLegacy ? new Cymbal(osr, os) : new Cymbal808(osr, os); this.metal = new Metal(osr, os); break;
       case 10: case 11: this.hats = new Hats(osr, os); this.metal = new Metal(osr, os); break;
