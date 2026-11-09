@@ -172,3 +172,4 @@ footer { max-width: 1400px; margin: 0 auto; padding: 0 24px 32px; color: var(--m
   .seq { grid-template-columns: 64px repeat(16, 26px); gap: 3px; }
   .seq .name { position: sticky; left: 0; background: var(--panel); z-index: 1; padding-right: 4px; }
 }
+.knob[hidden] { display: none; }

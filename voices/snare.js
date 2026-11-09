@@ -74,7 +74,9 @@ export class Snare {
     const colorK = k.color * 0.4 + 0.8;
     const cN2 = Math.exp(-1 / ((k.snappy * 0.1 + 0.133) * sr * nT));
     const kq = 1 / ((2 - colorK) * 0.7);
-    const g = Math.tan((L ? 3015 : F.noiseHpHz) * colorK * Math.PI / sr);
+    // wires (0..1, 0.5 = as fitted): the snare noise's high-pass, an octave down or up
+    const wires = L ? 1 : 2 ** ((Math.min(Math.max(k.wires ?? 0.5, 0), 1) - 0.5) * 2);
+    const g = Math.tan(Math.min((L ? 3015 : F.noiseHpHz) * colorK * wires, sr * 0.45) * Math.PI / sr);
     const invSr = 1 / sr;
     const alpha = invSr / (invSr + 1.034817575e-4);
     const dec1 = sgnpow(k.decay, 1.1);

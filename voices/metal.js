@@ -36,6 +36,9 @@ const SM_MS = [4.869810045, 3.285189867, 2.705450058, 1.913139969, 1.850000024, 
 export const CB_HZ = [540.54, 800.0];
 /** shaping exponent for the DUTY, VOLT, CB_PW and CB_TUNE knobs */
 const HH_POW = 2.33;
+const SM_GM = Math.exp(SM_MS.reduce((a, v) => a + Math.log(v), 0) / SM_MS.length);
+/** SPREAD 0..1 → exponent on each oscillator's ratio to the group's geometric mean (0.25 .. 1 .. 2.5). */
+const spreadExp = (v) => { v = Math.min(Math.max(v, 0), 1); return v < 0.5 ? 0.25 + 1.5 * v : 1 + 3 * (v - 0.5); };
 
 class Biquad {
   constructor() { this.x1 = 0; this.x2 = 0; this.y1 = 0; this.y2 = 0; }
@@ -61,6 +64,7 @@ function highpass(st, x, k, q) {
  * @property {number} cbO1    CB_O1 0..1
  * @property {number} cbO2    CB_O2 0..1
  * @property {boolean} cbFromHats  CB_SW: take the cowbell's oscillators from the metal bank
+ * @property {number} [spread] SPREAD 0..1 (0.5 = as built): pulls the six oscillators together or apart
  */
 
 export class Metal {
@@ -81,6 +85,7 @@ export class Metal {
     this.hp1 = new Biquad();
     this.hp2 = new Biquad();
     this.low = new Float64Array(6);
+    this.periods = SM_MS.slice(); this._spread = 0.5;
     /** last output; reused every tick to avoid allocation */
     this.out = { raw: 0, hi: 0, lo: 0, cb1: 0, cb2: 0 };
   }
@@ -89,6 +94,12 @@ export class Metal {
   tick(k) {
     const sr = this.sr;
     const ms = sr * 0.001;
+    const sp = k.spread ?? 0.5;
+    if (sp !== this._spread) {
+      this._spread = sp;
+      const e = spreadExp(sp);
+      for (let i = 0; i < 6; i++) this.periods[i] = e === 1 ? SM_MS[i] : SM_GM * (SM_MS[i] / SM_GM) ** e;
+    }
     this.dutyS += (k.duty - this.dutyS) * this.kS;
     this.voltS += (k.volt - this.voltS) * this.kS;
     this.pwS += (k.cbPw - this.pwS) * this.kS;
@@ -104,7 +115,7 @@ export class Metal {
     const low = this.low;
     let sum = 0;
     for (let i = 0; i < 6; i++) {
-      const f = this.osc[i].step(ms * SM_MS[i] * voltF, duty);
+      const f = this.osc[i].step(ms * this.periods[i] * voltF, duty);
       low[i] = 1 - f;
       sum += low[i];
     }

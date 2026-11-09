@@ -28,7 +28,8 @@ the output matches it to within floating-point rounding (see Tests).
 | `voices/cowbell.js` | `Cowbell` (the Rust cowbell, `COWBELL_FIT.legacy = true`) | `cb.rs` |
 | `voices/cymbal-808.js` | `Cymbal808`, the cymbal laid out like the TR-808 circuit and fitted to its recordings (used by default) | |
 | `voices/cymbal.js` | `Cymbal`, `stretchFor()` (the Rust cymbal, `CYMBAL_FIT.legacy = true`) | `cymbal.rs` |
-| `voices/hats.js` | `Hats` (closed and open) | `hats.rs` |
+| `voices/hats-808.js` | `Hats808`, closed and open hats laid out like the TR-808 circuits (used by default) | |
+| `voices/hats.js` | `Hats` (the Rust hats, `HATS_FIT.legacy = true`) | `hats.rs` |
 | `voices/metal.js` | `Metal`, the shared oscillator bank feeding cowbell, cymbal and hats | `metal.rs` |
 | `voices/dsp.js` | shared helpers (noise generators, `sgnpow`) | |
 | `params.js` | parameter ids, defaults and allowed ranges, `Params` store | `params.rs` |
@@ -217,6 +218,25 @@ beat uses only a few percent of one CPU core.
   circuit and to all 25 Tone x Decay recordings: spectrogram error 6.4 to 5.4 dB. The Attack
   knob is Tone, as on the machine; Tune moves the pitch (x0.67 to x1.5) and P.Amt the slide
   depth (0 to x2). `BASS_FIT.legacy = true` restores the Rust bass drum.
+- The hats are rebuilt along the lines of the TR-808's hi-hat circuits (`voices/hats-808.js`):
+  the six metal oscillators through a bridged-T band-pass into a "swing" VCA that chops the
+  signal by the envelope (which gives the fast-then-faster decay), then a Sallen-Key high-pass
+  and the mixer's roll-off. The open hat's envelope charges softly, leaks, and is dumped when the
+  Decay timer runs out or the closed hat chokes it. Fitted to a component-level simulation of
+  the circuits and to the recordings: open hat 5.0 to 4.2 dB, closed hat 4.9 to 2.8.
+  `HATS_FIT.legacy = true` restores the Rust hats.
+- The snare stays the refit described above: a rebuild along the lines of the snare circuit
+  (two resonators, the loaded Tone pot, the snappy envelope with its Vbe threshold, the wires'
+  high-pass) scored 5.9 dB against the recordings, against 2.7 for the refit.
+- Controls added for the circuit-based voices (all 0..1, centred = as built): bass drum Click
+  (`BD_CLICK`, the trigger's click, 0 to x2) and Attack (`BD_HOLD`, how long the fast first
+  segment lasts, x1/3 to x3); snare Wires (`SD_WIRES`, the noise high-pass, an octave either
+  way); cowbell Ring (`CB_RING`, the band-pass Q, x1/3 to x3); Spread (`SPREAD`, pulls the six
+  metal oscillators together or apart; shared by the cymbal, hats and cowbell in HH mode, like
+  Duty and Volt); open and closed hat Tone (`OH_TONE`, `CH_TONE`, each hat's high-pass, an
+  octave either way). On the page the toms' Attack knob is labelled Noise and the rim shot's
+  Res is Drive; knobs that do nothing for claves, maracas or congas are hidden in those modes,
+  and the toms' Filter knob (`xT_FLT`) is no longer shown.
 - The Rust clap (legacy) and the mixer run in double precision instead of single precision.
 - The Rust `Engine` also ticks an older unused oscillator bank; the port leaves it out.
 - Meters are a plain `Float32Array` (`engine.meters`) instead of atomics.

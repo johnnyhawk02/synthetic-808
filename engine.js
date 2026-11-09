@@ -17,6 +17,7 @@ import { Cowbell808, COWBELL_FIT } from './voices/cowbell-808.js';
 import { Cymbal, stretchFor } from './voices/cymbal.js';
 import { Cymbal808, CYMBAL_FIT } from './voices/cymbal-808.js';
 import { Hats } from './voices/hats.js';
+import { Hats808, HATS_FIT } from './voices/hats-808.js';
 import { sgnpow, HalfbandDecimator } from './voices/dsp.js';
 
 export const VOICES = [
@@ -78,7 +79,8 @@ export class Engine {
     this.metal = new Metal(osr, os);
     this.cymbalLegacy = !!CYMBAL_FIT.legacy;
     this.cymbal = this.cymbalLegacy ? new Cymbal(osr, os) : new Cymbal808(osr, os);
-    this.hats = new Hats(osr, os);
+    this.hatsLegacy = !!HATS_FIT.legacy;
+    this.hats = this.hatsLegacy ? new Hats(osr, os) : new Hats808(osr, os);
     this.decimator = new HalfbandDecimator();
     this._sub = new Float64Array(2);
     // idle voices are put to sleep (not ticked) after this many silent samples at their own rate
@@ -159,7 +161,7 @@ export class Engine {
       case 7: this.clap = this.clapLegacy ? new Clap(sr, 0x12345678) : new Clap808(sr, 0x12345678); break;
       case 8: this.cowbell = this.cowbellLegacy ? new Cowbell(osr, os) : new Cowbell808(osr, os); this.metal = new Metal(osr, os); break;
       case 9: this.cymbal = this.cymbalLegacy ? new Cymbal(osr, os) : new Cymbal808(osr, os); this.metal = new Metal(osr, os); break;
-      case 10: case 11: this.hats = new Hats(osr, os); this.metal = new Metal(osr, os); break;
+      case 10: case 11: this.hats = this.hatsLegacy ? new Hats(osr, os) : new Hats808(osr, os); this.metal = new Metal(osr, os); break;
     }
   }
 
@@ -201,9 +203,9 @@ export class Engine {
 
     this.snare.prepare({
       tone: p.get('SD_TONE'), snappy: p.get('SD_SNAPPY'), decay: p.get('SD_DECAY'),
-      ndec: p.get('SD_NDEC'), color: SD_COLOR,
+      ndec: p.get('SD_NDEC'), color: SD_COLOR, wires: p.get('SD_WIRES'),
     });
-    const bd = [p.get('BD_TUNE'), p.get('BD_ATK'), p.get('BD_DEC'), p.get('BD_PAMT'), p.get('BD_VOL')];
+    const bd = [p.get('BD_TUNE'), p.get('BD_ATK'), p.get('BD_DEC'), p.get('BD_PAMT'), p.get('BD_VOL'), p.get('BD_CLICK'), p.get('BD_HOLD')];
     const sdBal = p.get('SD_BAL'), sdPitch = p.get('SD_PITCH');
     const sdLevel = sgnpow(p.get('SD_VOL'), 1.12) * (SNARE_FIT.legacy ? SD_POST_GAIN : SD_FIT_GAIN);
     const tomK = TOM_KEYS.map((k, i) => ({
@@ -217,11 +219,11 @@ export class Engine {
     const rsLevel = sgnpow(p.get('RS_VOL'), 1.12) * RS_POST_GAIN;
     const metalKnobs = {
       duty: p.get('DUTY'), volt: p.get('VOLT'), cbPw: p.get('CB_PW'), cbTune: p.get('CB_TUNE'),
-      cbO1: p.get('CB_O1'), cbO2: p.get('CB_O2'), cbFromHats: p.get('CB_SW') > 0.5,
+      cbO1: p.get('CB_O1'), cbO2: p.get('CB_O2'), cbFromHats: p.get('CB_SW') > 0.5, spread: p.get('SPREAD'),
     };
-    const cbVol = p.get('CB_VOL'), cbDec = p.get('CB_DEC');
+    const cbVol = p.get('CB_VOL'), cbDec = p.get('CB_DEC'), cbRing = p.get('CB_RING');
     const rcVol = p.get('RC_VOL'), rcTone = p.get('RC_TONE'), rcDec = p.get('RC_DEC');
-    const chDec = p.get('CH_DEC'), ohDec = p.get('OH_DEC');
+    const chDec = p.get('CH_DEC'), ohDec = p.get('OH_DEC'), chTone = p.get('CH_TONE'), ohTone = p.get('OH_TONE');
     const ohLevel = sgnpow(p.get('OH_VOL'), 1.12) * HAT_POST_GAIN[1];
     const chLevel = sgnpow(p.get('CH_VOL'), 1.12) * HAT_POST_GAIN[0];
     if (this.cymbalLegacy) this.cymbal.stretch = stretchFor(rcDec);
@@ -237,7 +239,7 @@ export class Engine {
       if (this.accent.left > 0) { this.accent.left -= 1; v[0] = this.accent.amp * 0.8; }
 
       const awake = this._awake;
-      v[1] = awake[1] ? this.bass.tick(bd[0], bd[1], bd[2], bd[3], bd[4]) * BD_POST_GAIN : 0;
+      v[1] = awake[1] ? this.bass.tick(bd[0], bd[1], bd[2], bd[3], bd[4], bd[5], bd[6]) * BD_POST_GAIN : 0;
       v[2] = awake[2] ? this.snare.tick(sdBal, sdPitch) * sdLevel : 0;
       v[7] = this.clap.tick();
       let sum = this._mix(v, 0, 3, trgLevel, hcLevel, peaks) + this._mix(v, 7, 8, trgLevel, hcLevel, peaks);
@@ -253,12 +255,12 @@ export class Engine {
         const hatsOn = awake[10] || awake[11];
         if (awake[8] || awake[9] || hatsOn) {
           const mo = this.metal.tick(metalKnobs);
-          v[8] = awake[8] ? this.cowbell.tick(mo.cb1, mo.cb2, cbVol, cbDec) * CB_POST_GAIN : 0;
+          v[8] = awake[8] ? this.cowbell.tick(mo.cb1, mo.cb2, cbVol, cbDec, cbRing) * CB_POST_GAIN : 0;
           v[9] = !awake[9] ? 0 : this.cymbalLegacy
             ? this.cymbal.tick(mo.hi, mo.lo, rcVol, rcTone, rcDec) * cyGain
             : this.cymbal.tick(mo.hi, mo.lo, rcVol, rcTone, rcDec) * cyGain;
           if (hatsOn) {
-            const hats = this.hats.tick(mo.hi, chDec, ohDec);
+            const hats = this.hatsLegacy ? this.hats.tick(mo.hi, chDec, ohDec) : this.hats.tick(mo.raw, chDec, ohDec, chTone, ohTone);
             v[10] = hats.open * ohLevel;
             v[11] = hats.closed * chLevel;
           } else { v[10] = 0; v[11] = 0; }

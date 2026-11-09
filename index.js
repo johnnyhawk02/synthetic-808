@@ -17,5 +17,6 @@ export { Tom808, TOM_FIT, TOM_808 } from './voices/tom-808.js';
 export { Rim808, RIM_FIT, RIM_808 } from './voices/rim-808.js';
 export { Cowbell808, COWBELL_FIT, COWBELL_808 } from './voices/cowbell-808.js';
 export { Bass808, BASS_FIT, BASS_808 } from './voices/bass-808.js';
+export { Hats808, HATS_FIT, HATS_808 } from './voices/hats-808.js';
 export { Hats } from './voices/hats.js';
 export { Sampler, SAMPLE_MAP, sampleNames } from './sampler.js';

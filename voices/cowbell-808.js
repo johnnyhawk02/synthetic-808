@@ -9,7 +9,8 @@
 // tail. A coupling high-pass feeds the band-pass (about 890 Hz), and the output stage
 // high-passes again at about 330 Hz.
 //
-// Knobs: CB_DEC scales both envelope times (x1/3 .. x3, centred = as built); CB_VOL is the level.
+// Knobs: CB_DEC scales both envelope times (x1/3 .. x3), CB_RING the band-pass Q (x1/3 .. x3),
+// both centred = as built; CB_VOL is the level.
 // The oscillators come from the metal bank, so CB_TUNE, CB_O1, CB_O2 and CB_PW still apply.
 
 import { follow } from './dsp.js';
@@ -38,7 +39,7 @@ export class Cowbell808 {
     this.kS = follow(0.0151515151515, os);
     this.lvlS = 0; this.decS = 0.5; this._dKey = NaN;
     this.eF = 0; this.eS = 0; this.kF = 0; this.kSl = 0;
-    this.pending = false; this.amp = 1;
+    this.pending = false; this.amp = 1; this._ring = 0.5;
     const w = 2 * Math.PI * K.bpF / sr, al = Math.sin(w) / (2 * K.bpQ), a0 = 1 + al;
     this.b = [al / a0, 0, -al / a0, -2 * Math.cos(w) / a0, (1 - al) / a0];
     this.x1 = 0; this.x2 = 0; this.y1 = 0; this.y2 = 0;
@@ -50,8 +51,8 @@ export class Cowbell808 {
   /** velocity: 1 for a hit, 2 accented. */
   trigger(velocity) { this.pending = true; this.amp = velocity > 1 ? COWBELL_808.accent : 1; }
 
-  /** cb1, cb2: the cowbell oscillators (±1) from Metal.tick(). vol = CB_VOL, dec = CB_DEC. */
-  tick(cb1, cb2, vol, dec) {
+  /** cb1, cb2: the cowbell oscillators (±1) from Metal.tick(). vol = CB_VOL, dec = CB_DEC, ring = CB_RING. */
+  tick(cb1, cb2, vol, dec, ring = 0.5) {
     const K = COWBELL_808;
     this.lvlS += (vol - this.lvlS) * this.kS;
     this.decS += (dec - this.decS) * this.kS;
@@ -63,6 +64,11 @@ export class Cowbell808 {
     if (this.pending) {
       this.pending = false;
       this.eF = Math.max(this.eF, this.amp * (1 - K.mixS)); this.eS = Math.max(this.eS, this.amp * K.mixS);
+    }
+    if (ring !== this._ring) {
+      this._ring = ring;
+      const sr = this.sr, w = 2 * Math.PI * K.bpF / sr, al = Math.sin(w) / (2 * K.bpQ * 3 ** ((clamp01(ring) - 0.5) * 2)), a0 = 1 + al;
+      this.b = [al / a0, 0, -al / a0, -2 * Math.cos(w) / a0, (1 - al) / a0];
     }
     this.eF *= this.kF; this.eS *= this.kSl;
     const e = this.eF + this.eS;

@@ -3,19 +3,21 @@ import { DEFAULTS, RANGES } from '../params.js';
 import { VOICE_INDEX } from '../engine.js';
 import { SAMPLE_MAP, sampleNames } from '../sampler.js';
 
-// Panel layout: voice → knobs [param, label] and optional switch [param, offLabel, onLabel].
+// Panel layout: voice → knobs [param, label, mode?] and optional switch [param, offLabel, onLabel].
+// mode 'main' shows a knob only for the main voice (tom, rim shot, clap), 'alt' only for the other.
+// Spread, Duty and Volt act on the shared metal oscillators (cymbal, hats, cowbell in HH mode).
 const COLUMNS = [
-  { voice: 'bass', name: 'Bass drum', key: 'a', knobs: [['BD_VOL', 'Level'], ['BD_TUNE', 'Tune'], ['BD_DEC', 'Decay'], ['BD_ATK', 'Tone'], ['BD_PAMT', 'P.Amt']] },
-  { voice: 'snare', name: 'Snare', key: 's', knobs: [['SD_VOL', 'Level'], ['SD_TONE', 'Tone'], ['SD_SNAPPY', 'Snappy'], ['SD_DECAY', 'Dec'], ['SD_NDEC', 'N.Dec'], ['SD_BAL', 'Tilt'], ['SD_PITCH', 'Pitch']] },
-  { voice: 'lowTom', name: 'Low tom', alt: 'Low conga', key: 'd', knobs: [['LT_VOL', 'Level'], ['LT_TUNE', 'Tune'], ['LT_DEC', 'Dec'], ['LT_ATK', 'Rev'], ['LT_FLT', 'Flt']], sw: ['LT_SW', 'Conga', 'Tom'] },
-  { voice: 'midTom', name: 'Mid tom', alt: 'Mid conga', key: 'f', knobs: [['MT_VOL', 'Level'], ['MT_TUNE', 'Tune'], ['MT_DEC', 'Dec'], ['MT_ATK', 'Rev'], ['MT_FLT', 'Flt']], sw: ['MT_SW', 'Conga', 'Tom'] },
-  { voice: 'hiTom', name: 'Hi tom', alt: 'Hi conga', key: 'g', knobs: [['HT_VOL', 'Level'], ['HT_TUNE', 'Tune'], ['HT_DEC', 'Dec'], ['HT_ATK', 'Rev'], ['HT_FLT', 'Flt']], sw: ['HT_SW', 'Conga', 'Tom'] },
-  { voice: 'rim', name: 'Rim shot', alt: 'Claves', key: 'h', knobs: [['RS_VOL', 'Level'], ['RS_TUNE', 'Tune'], ['RS_DEC', 'Dec'], ['RS_OSC1', 'Osc 1'], ['RS_OSC2', 'Osc 2'], ['RS_FLT', 'Tone'], ['RS_RES', 'Res']], sw: ['RS_SW', 'Rim', 'Claves'] },
-  { voice: 'clap', name: 'Hand clap', alt: 'Maracas', key: 'j', knobs: [['HC_VOL', 'Level'], ['HC_OFFSET', 'Offs'], ['HC_CLPS', 'Clps'], ['HC_DEC', 'Dec'], ['HC_TAIL', 'Tail'], ['HC_REV', 'Rev'], ['HC_FLT', 'R.Flt']], sw: ['HC_SW', 'Clap', 'Maracas'] },
-  { voice: 'cowbell', name: 'Cowbell', key: 'k', knobs: [['CB_VOL', 'Level'], ['CB_DEC', 'Dec'], ['CB_TUNE', 'Tune'], ['CB_PW', 'PW'], ['CB_O1', 'Osc 1'], ['CB_O2', 'Osc 2']], sw: ['CB_SW', 'CB', 'HH'] },
-  { voice: 'cymbal', name: 'Cymbal', key: 'l', knobs: [['RC_VOL', 'Level'], ['RC_TONE', 'Tone'], ['RC_DEC', 'Dec']] },
-  { voice: 'openHat', name: 'Open hat', key: ';', knobs: [['OH_VOL', 'Level'], ['OH_DEC', 'Dec'], ['DUTY', 'Duty']] },
-  { voice: 'closedHat', name: 'Closed hat', key: "'", knobs: [['CH_VOL', 'Level'], ['CH_DEC', 'Dec'], ['VOLT', 'Volt']] },
+  { voice: 'bass', name: 'Bass drum', key: 'a', knobs: [['BD_VOL', 'Level'], ['BD_TUNE', 'Tune'], ['BD_DEC', 'Decay'], ['BD_ATK', 'Tone'], ['BD_PAMT', 'P.Amt'], ['BD_CLICK', 'Click'], ['BD_HOLD', 'Attack']] },
+  { voice: 'snare', name: 'Snare', key: 's', knobs: [['SD_VOL', 'Level'], ['SD_TONE', 'Tone'], ['SD_SNAPPY', 'Snappy'], ['SD_DECAY', 'Dec'], ['SD_NDEC', 'N.Dec'], ['SD_BAL', 'Tilt'], ['SD_PITCH', 'Pitch'], ['SD_WIRES', 'Wires']] },
+  { voice: 'lowTom', name: 'Low tom', alt: 'Low conga', key: 'd', knobs: [['LT_VOL', 'Level'], ['LT_TUNE', 'Tune'], ['LT_DEC', 'Dec'], ['LT_ATK', 'Noise', 'main']], sw: ['LT_SW', 'Conga', 'Tom'] },
+  { voice: 'midTom', name: 'Mid tom', alt: 'Mid conga', key: 'f', knobs: [['MT_VOL', 'Level'], ['MT_TUNE', 'Tune'], ['MT_DEC', 'Dec'], ['MT_ATK', 'Noise', 'main']], sw: ['MT_SW', 'Conga', 'Tom'] },
+  { voice: 'hiTom', name: 'Hi tom', alt: 'Hi conga', key: 'g', knobs: [['HT_VOL', 'Level'], ['HT_TUNE', 'Tune'], ['HT_DEC', 'Dec'], ['HT_ATK', 'Noise', 'main']], sw: ['HT_SW', 'Conga', 'Tom'] },
+  { voice: 'rim', name: 'Rim shot', alt: 'Claves', key: 'h', knobs: [['RS_VOL', 'Level'], ['RS_TUNE', 'Tune'], ['RS_DEC', 'Dec'], ['RS_OSC1', 'Osc 1', 'main'], ['RS_OSC2', 'Osc 2', 'main'], ['RS_FLT', 'Tone', 'main'], ['RS_RES', 'Drive', 'main']], sw: ['RS_SW', 'Rim', 'Claves'] },
+  { voice: 'clap', name: 'Hand clap', alt: 'Maracas', key: 'j', knobs: [['HC_VOL', 'Level'], ['HC_OFFSET', 'Offs'], ['HC_CLPS', 'Clps', 'main'], ['HC_DEC', 'Dec'], ['HC_TAIL', 'Tail', 'main'], ['HC_REV', 'Rev', 'main'], ['HC_FLT', 'R.Flt']], sw: ['HC_SW', 'Clap', 'Maracas'] },
+  { voice: 'cowbell', name: 'Cowbell', key: 'k', knobs: [['CB_VOL', 'Level'], ['CB_DEC', 'Dec'], ['CB_TUNE', 'Tune'], ['CB_PW', 'PW'], ['CB_O1', 'Osc 1'], ['CB_O2', 'Osc 2'], ['CB_RING', 'Ring']], sw: ['CB_SW', 'CB', 'HH'] },
+  { voice: 'cymbal', name: 'Cymbal', key: 'l', knobs: [['RC_VOL', 'Level'], ['RC_TONE', 'Tone'], ['RC_DEC', 'Dec'], ['SPREAD', 'Spread']] },
+  { voice: 'openHat', name: 'Open hat', key: ';', knobs: [['OH_VOL', 'Level'], ['OH_DEC', 'Dec'], ['DUTY', 'Duty'], ['OH_TONE', 'Tone']] },
+  { voice: 'closedHat', name: 'Closed hat', key: "'", knobs: [['CH_VOL', 'Level'], ['CH_DEC', 'Dec'], ['VOLT', 'Volt'], ['CH_TONE', 'Tone']] },
   { voice: null, name: 'Master', knobs: [['MST_VOL', 'Volume'], ['DRIVE', 'Drive'], ['AC_LEVEL', 'Accent']], sw: ['MAIN_VCA', 'Clean', 'VCA'] },
 ];
 const SEQ_VOICES = COLUMNS.filter((c) => c.voice).map((c) => c.voice);
@@ -277,7 +279,12 @@ for (const col of COLUMNS) {
   }
   const knobs = document.createElement('div');
   knobs.className = 'knobs';
-  for (const [id, label] of col.knobs) knobs.append(makeKnob(id, label));
+  const modal = [];
+  for (const [id, label, mode] of col.knobs) {
+    const k = makeKnob(id, label);
+    if (mode) modal.push([k, mode]);
+    knobs.append(k);
+  }
   box.append(knobs);
   if (col.sw) {
     box.append(makeSwitch(col.sw, (on) => {
@@ -285,6 +292,7 @@ for (const col of COLUMNS) {
       // tom switch: on = tom; rim/clap switch: on = alternate voice
       const isAlt = col.sw[0].endsWith('T_SW') ? !on : on;
       const label = isAlt ? col.alt : col.name;
+      for (const [k, mode] of modal) k.hidden = mode === 'main' ? isAlt : !isAlt;
       title.textContent = label;
       if (pads[col.voice]) pads[col.voice].span.textContent = label;
       const row = document.querySelector(`.name[data-voice="${col.voice}"]`);

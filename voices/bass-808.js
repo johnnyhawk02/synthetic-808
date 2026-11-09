@@ -11,7 +11,8 @@
 // one-pole low-pass, computed from its parts.
 //
 // Knobs: BD_ATK is Tone (as on the machine), BD_DEC the ring time, BD_TUNE the pitch
-// (x0.67 .. x1.5), BD_PAMT the depth of the pitch slide (0 .. x2), all centred = as built.
+// (x0.67 .. x1.5), BD_PAMT the depth of the pitch slide (0 .. x2), BD_CLICK the trigger click
+// (0 .. x2), BD_HOLD how long the fast first segment lasts (x1/3 .. x3); all centred = as built.
 
 import { sgnpow } from './dsp.js';
 
@@ -48,7 +49,7 @@ export class Bass808 {
     this.cA = 1 - Math.exp(-2 * Math.PI * 400 / sr);
     this.lvl = 0; this._volKey = NaN; this._lvlT = 0;
     this._toneKey = NaN; this.pending = false; this.accented = false;
-    this.f0 = 48; this.t10 = 0.3; this.gK = 0; this.glide = 0;
+    this.f0 = 48; this.t10 = 0.3; this.gK = 0; this.glide = 0; this.clickK = 0;
   }
 
   /** velocity: 1 for a hit, 2 accented. */
@@ -68,8 +69,8 @@ export class Bass808 {
     this.pulseN = Math.max(1, Math.round(0.001 * this.sr));
   }
 
-  /** One sample. Knobs are panel values 0..1 (BD_TUNE, BD_ATK = tone, BD_DEC, BD_PAMT, BD_VOL). */
-  tick(tune, tone, dec, pamt, vol) {
+  /** One sample. Knobs are panel values 0..1 (BD_TUNE, BD_ATK = tone, BD_DEC, BD_PAMT, BD_VOL, BD_CLICK, BD_HOLD). */
+  tick(tune, tone, dec, pamt, vol, click = 0.5, hold = 0.5) {
     const K = BASS_808, sr = this.sr;
     if (vol !== this._volKey) { this._volKey = vol; this._lvlT = sgnpow(vol, 1.12); }
     this.lvl += 0.02 * (this._lvlT - this.lvl);
@@ -89,7 +90,8 @@ export class Bass808 {
       this.glide = K.glide * 2 * clamp01(pamt);
       this.amp = this.accented ? K.accent : 1;
       this.t = 0; this.g = 1;
-      this.segN = Math.max(1, Math.round(K.seg * sr));
+      this.segN = Math.max(1, Math.round(K.seg * 3 ** ((clamp01(hold) - 0.5) * 2) * sr));
+      this.clickK = K.click * 2 * clamp01(click);
       this._res(this.f0 * (1 + this.glide) * K.fast);
       this._kick(this.amp * K.kick1);
     }
@@ -109,7 +111,7 @@ export class Bass808 {
     const v2 = this.ic2 + this.a2 * this.ic1 + this.a3 * v3;
     this.ic1 = 2 * v1 - this.ic1; this.ic2 = 2 * v2 - this.ic2;
     let y = this.k * v1;
-    const ck = t < sr * 0.001 ? this.amp * K.click : 0;
+    const ck = t < sr * 0.001 ? this.amp * this.clickK : 0;
     this.cz += this.cA * (ck - this.cz);
     y += ck - this.cz;
     this.tz += this.tA * (y - this.tz);
