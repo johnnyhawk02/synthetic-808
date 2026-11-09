@@ -17,7 +17,8 @@ the output matches it to within floating-point rounding (see Tests).
 |---|---|---|
 | `voices/bass-drum.js` | `BassDrum` | `bd.rs` |
 | `voices/snare.js` | `Snare` | `sd.rs` |
-| `voices/tom.js` | `Tom` plus the `LOW`, `MID`, `HIGH` specs (tom or conga) | `tom.rs` |
+| `voices/tom-808.js` | `Tom808`, toms and congas laid out like the TR-808 boards (used by default) | |
+| `voices/tom.js` | `Tom` plus the `LOW`, `MID`, `HIGH` specs (the Rust toms, `TOM_FIT.legacy = true`) | `tom.rs` |
 | `voices/rimshot.js` | `RimShot` (rim shot or claves) | `rs.rs` |
 | `voices/clap-808.js` | `Clap808`, hand clap or maracas laid out like the TR-808 board (used by default) | |
 | `voices/clap.js` | `Clap` (the Rust clap, `CLAP_FIT.legacy = true`) | clap block in `synth.rs` |
@@ -178,6 +179,15 @@ beat uses only a few percent of one CPU core.
   spacing, Claps the window (how many claps), Decay the last clap, Tail and Rev the reverb's
   decay and level, Filter its low-pass; for the maracas, Decay sets the gate length, Offset the
   attack and Filter the high-pass tuning. `CLAP_FIT.legacy = true` restores the Rust clap.
+- The toms and congas are rebuilt along the lines of the TR-808's tom / conga boards
+  (`voices/tom-808.js`): a bridged-T resonator kicked by the trigger pulse, its pitch and level
+  following the tuning pot, a short swell as the ring builds up, and on the toms a burst of
+  steeply filtered noise that decays with the ring. The constants are fitted to a
+  component-level simulation of the boards across the Tuning knob and to the recordings.
+  Spectrogram error against the recordings: low tom 8.5 to 4.9 dB, mid tom 7.6 to 6.8, high
+  tom 7.7 to 8.0, congas 10.4 / 7.1 / 8.9 to 6.3 / 5.6 / 7.2. Knobs, centred = as built: Tune
+  sweeps the pot's range, Decay scales the ring time (x1/3 to x3), Attack the tom noise, Filter
+  its low-pass. `TOM_FIT.legacy = true` restores the Rust toms.
 - The Rust clap (legacy) and the mixer run in double precision instead of single precision.
 - The Rust `Engine` also ticks an older unused oscillator bank; the port leaves it out.
 - Meters are a plain `Float32Array` (`engine.meters`) instead of atomics.

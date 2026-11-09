@@ -13,5 +13,6 @@ export { Cowbell } from './voices/cowbell.js';
 export { Cymbal, stretchFor } from './voices/cymbal.js';
 export { Cymbal808, CYMBAL_FIT } from './voices/cymbal-808.js';
 export { Clap808, CLAP_FIT, CLAP_808 } from './voices/clap-808.js';
+export { Tom808, TOM_FIT, TOM_808 } from './voices/tom-808.js';
 export { Hats } from './voices/hats.js';
 export { Sampler, SAMPLE_MAP, sampleNames } from './sampler.js';

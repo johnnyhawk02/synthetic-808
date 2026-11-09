@@ -8,28 +8,28 @@
     "accent": 1.851
   },
   "LT": {
-    "gain": 0.3634,
-    "accent": 2.13
+    "gain": 0.3608,
+    "accent": 2
   },
   "MT": {
-    "gain": 0.3585,
-    "accent": 2.147
+    "gain": 0.36,
+    "accent": 2
   },
   "HT": {
-    "gain": 0.2226,
-    "accent": 2.007
+    "gain": 0.2223,
+    "accent": 2
   },
   "LC": {
-    "gain": 0.3076,
-    "accent": 1.903
+    "gain": 0.3013,
+    "accent": 2
   },
   "MC": {
-    "gain": 0.4294,
-    "accent": 1.9
+    "gain": 0.4177,
+    "accent": 2
   },
   "HC": {
-    "gain": 0.2659,
-    "accent": 1.775
+    "gain": 0.2595,
+    "accent": 2
   },
   "RS": {
     "gain": 0.3534,

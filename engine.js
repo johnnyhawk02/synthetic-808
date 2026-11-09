@@ -6,6 +6,7 @@ import { Metal } from './voices/metal.js';
 import { BassDrum } from './voices/bass-drum.js';
 import { Snare, SNARE_FIT } from './voices/snare.js';
 import { Tom, LOW, MID, HIGH } from './voices/tom.js';
+import { Tom808, TOM_FIT } from './voices/tom-808.js';
 import { RimShot } from './voices/rimshot.js';
 import { Clap } from './voices/clap.js';
 import { Clap808, CLAP_FIT } from './voices/clap-808.js';
@@ -64,7 +65,8 @@ export class Engine {
     this.clapLegacy = !!CLAP_FIT.legacy;
     this.clap = this.clapLegacy ? new Clap(sr, 0x12345678) : new Clap808(sr, 0x12345678);
     const osr = sr * oversample, os = oversample;
-    this.toms = [new Tom(LOW, osr, 0x1111, os), new Tom(MID, osr, 0x2222, os), new Tom(HIGH, osr, 0x3333, os)];
+    this.tomLegacy = !!TOM_FIT.legacy;
+    this.toms = [0, 1, 2].map((k) => this._newTom(k));
     this.rim = new RimShot(osr, os);
     this.cowbell = new Cowbell(osr, os);
     this.metal = new Metal(osr, os);
@@ -133,6 +135,11 @@ export class Engine {
     }
   }
 
+  _newTom(k) {
+    const osr = this.sr * this.os, seed = 0x1111 * (k + 1);
+    return this.tomLegacy ? new Tom([LOW, MID, HIGH][k], osr, seed, this.os) : new Tom808(k, osr, seed, this.os);
+  }
+
   /** Rebuild one voice's DSP state (used when extreme settings make it unstable). */
   _resetVoice(i) {
     const sr = this.sr, os = this.os, osr = sr * os;
@@ -141,7 +148,7 @@ export class Engine {
       case 1: this.bass = new BassDrum(sr); break;
       case 2: this.snare = new Snare(sr); break;
       case 3: case 4: case 5:
-        this.toms[i - 3] = new Tom([LOW, MID, HIGH][i - 3], osr, 0x1111 * (i - 2), os); break;
+        this.toms[i - 3] = this._newTom(i - 3); break;
       case 6: this.rim = new RimShot(osr, os); break;
       case 7: this.clap = this.clapLegacy ? new Clap(sr, 0x12345678) : new Clap808(sr, 0x12345678); break;
       case 8: this.cowbell = new Cowbell(osr, os); this.metal = new Metal(osr, os); break;
