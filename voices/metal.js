@@ -2,7 +2,7 @@
 // Every sample it produces two high-passed metal mixes (≈7.1 kHz `hi` and ≈3.4 kHz `lo`,
 // used by the cymbal and hi-hats) and the cowbell's two pulse waves (`cb1`, `cb2`, ±1).
 
-import { sgnpow } from './dsp.js';
+import { sgnpow, follow } from './dsp.js';
 
 /** knob → 0..1 with an S-shaped curve: 0.5 ± 0.5·|2v−1|^pow */
 function shape(v, pow) {
@@ -64,8 +64,16 @@ function highpass(st, x, k, q) {
  */
 
 export class Metal {
-  constructor(sr) {
+  /** @param {number} sr  sample rate the bank runs at  @param {number} [os] oversampling factor included in sr */
+  constructor(sr, os = 1) {
     this.sr = sr;
+    this.kS = follow(0.0303030303, os);
+    // fixed filter coefficients
+    this.g = Math.tan(2 * Math.PI * Math.min(sr * 0.25, 3333) / sr);
+    this.k1 = Math.tan(44717.42765 / (2 * sr));
+    this.k2 = Math.tan(21633.00596 / (2 * sr));
+    this._key = [NaN, NaN, NaN, NaN];
+    this._shaped = [0, 0, 0, 0];
     this.dutyS = 0.5; this.voltS = 0.5; this.pwS = 0.5; this.tuneS = 0.5;
     this.osc = Array.from({ length: 6 }, () => new Pulse());
     this.cb = [new Pulse(), new Pulse()];
@@ -81,14 +89,17 @@ export class Metal {
   tick(k) {
     const sr = this.sr;
     const ms = sr * 0.001;
-    this.dutyS += (k.duty - this.dutyS) * 0.0303030303;
-    this.voltS += (k.volt - this.voltS) * 0.0303030303;
-    this.pwS += (k.cbPw - this.pwS) * 0.0303030303;
-    this.tuneS += (k.cbTune - this.tuneS) * 0.0303030303;
-    const duty = sgnpow(shape(this.dutyS, HH_POW), 0.6) * 0.4 + 0.2;
-    const cbDuty = sgnpow(shape(this.pwS, HH_POW), 0.6) * 0.4 + 0.2;
-    const voltF = 1.5 - shape(this.voltS, HH_POW);
-    const tuneF = 1.5 - shape(this.tuneS, HH_POW);
+    this.dutyS += (k.duty - this.dutyS) * this.kS;
+    this.voltS += (k.volt - this.voltS) * this.kS;
+    this.pwS += (k.cbPw - this.pwS) * this.kS;
+    this.tuneS += (k.cbTune - this.tuneS) * this.kS;
+    // knob curves, recomputed only while a knob is moving
+    const key = this._key, sh = this._shaped;
+    if (key[0] !== this.dutyS) { key[0] = this.dutyS; sh[0] = sgnpow(shape(this.dutyS, HH_POW), 0.6) * 0.4 + 0.2; }
+    if (key[1] !== this.pwS) { key[1] = this.pwS; sh[1] = sgnpow(shape(this.pwS, HH_POW), 0.6) * 0.4 + 0.2; }
+    if (key[2] !== this.voltS) { key[2] = this.voltS; sh[2] = 1.5 - shape(this.voltS, HH_POW); }
+    if (key[3] !== this.tuneS) { key[3] = this.tuneS; sh[3] = 1.5 - shape(this.tuneS, HH_POW); }
+    const duty = sh[0], cbDuty = sh[1], voltF = sh[2], tuneF = sh[3];
 
     const low = this.low;
     let sum = 0;
@@ -100,13 +111,11 @@ export class Metal {
     const m = 0.5 * sum;
 
     // one-pole low-pass, then two high-passes
-    const g = Math.tan(2 * Math.PI * Math.min(sr * 0.25, 3333) / sr);
+    const g = this.g;
     const v = (g * m + this.lpS) / (1 + g);
     this.lpS = v + g * (m - v);
-    const k1 = Math.tan(44717.42765 / (2 * sr));
-    const k2 = Math.tan(21633.00596 / (2 * sr));
-    const hi = highpass(this.hp1, v, k1, 3.33);
-    const lo = highpass(this.hp2, v, k2, 3.22);
+    const hi = highpass(this.hp1, v, this.k1, 3.33);
+    const lo = highpass(this.hp2, v, this.k2, 3.22);
 
     // cowbell oscillators (or two of the metal ones with SOURCE = HH)
     const f1 = this.cb[0].step(ms * (CB_HZ[0] / 540.54 * 1.850000024) * (1.5 - k.cbO1) * tuneF, cbDuty);

@@ -1,6 +1,6 @@
 // Low, mid and high tom / conga (port of app/src/tom.rs). One design, three sets of constants.
 
-import { histLen, XorShift64 } from './dsp.js';
+import { histLen, XorShift64, follow } from './dsp.js';
 
 /**
  * @typedef {object} TomSpec
@@ -39,10 +39,19 @@ export const HIGH = Object.freeze({
 });
 
 export class Tom {
-  /** @param {TomSpec} spec  @param {number} sr  @param {number|bigint} seed noise seed */
-  constructor(spec, sr, seed) {
+  /**
+   * @param {TomSpec} spec  @param {number} sr sample rate the voice runs at
+   * @param {number|bigint} seed noise seed  @param {number} [os] oversampling factor included in sr
+   */
+  constructor(spec, sr, seed, os = 1) {
     this.spec = spec;
     this.sr = sr;
+    this.k02 = follow(0.02, os);
+    this.kGvUp = follow(0.0909090909091, os);
+    this.kGvDn = follow(0.0151515151515, os);
+    // white noise has 1/os of its power in the audible band when oversampled
+    this.noiseGain = Math.sqrt(os);
+    this._fKey = NaN;
     this.tomMode = true;
     this.flag = 1;
     this.tuneS = 0.5; this.decS = 0.5; this.atkS = 0.5; this.fltS = 0.5;
@@ -71,15 +80,15 @@ export class Tom {
     const sr = this.sr;
     const r = sr / 48000;
     const ms = sr * 0.001;
-    const noise = this.noise.next();
+    const noise = this.noise.next() * this.noiseGain;
     let ta = 0;
     if (this.gateLeft > 0) { this.gateLeft -= 1; ta = 1; }
 
-    this.tuneS += (tune - this.tuneS) * 0.02;
-    this.decS += (dec - this.decS) * 0.02;
-    this.atkS += (atk - this.atkS) * 0.02;
+    this.tuneS += (tune - this.tuneS) * this.k02;
+    this.decS += (dec - this.decS) * this.k02;
+    this.atkS += (atk - this.atkS) * this.k02;
     const nAmt = this.atkS * noise;
-    this.fltS += (flt - this.fltS) * 0.02;
+    this.fltS += (flt - this.fltS) * this.k02;
     const fltH = this.fltS + 0.5;
 
     if (ta !== 0) this.flag = this.tomMode ? 1 : 0;
@@ -108,7 +117,7 @@ export class Tom {
     const rel0 = a6 > 1 ? 1 / a6 : 1;
     const rel1 = b4 > 1 ? 1 / b4 : 1;
     this.eEdge += (edge - this.eEdge) * (this.eEdge < edge ? 1 : rel1);
-    this.eGv += (gv - this.eGv) * (this.eGv < gv ? 0.0909090909091 : 0.0151515151515);
+    this.eGv += (gv - this.eGv) * (this.eGv < gv ? this.kGvUp : this.kGvDn);
     const t0 = Math.max(Math.abs(aK * r * 300), 1);
     const t1 = Math.max(Math.abs(aK * r * 300 * 10), 1);
     this.f0 += (edge - this.f0) * (this.f0 < edge ? 1 : 1 / t0);
@@ -137,9 +146,13 @@ export class Tom {
     const tn2 = Math.max(Math.abs(tn * 0.01), 1);
     this.p2 += (this.p - this.p2) * (this.p > this.p2 ? 1 / tn2 : 1);
     const nEnv = this.p2 * sp.nenvScale;
-    const g1 = Math.tan(fltH * sp.hpHz * Math.PI / sr);
+    if (fltH !== this._fKey) {
+      this._fKey = fltH;
+      this._g1 = Math.tan(fltH * sp.hpHz * Math.PI / sr);
+      this._g2 = Math.tan(fltH * sp.lpHz * Math.PI / sr);
+    }
+    const g1 = this._g1, g2 = this._g2;
     const inv1 = 1 / (1 + g1);
-    const g2 = Math.tan(fltH * sp.lpHz * Math.PI / sr);
     const inv2 = 1 / (1 + g2);
     const n = tom ? nAmt * nEnv : 0;
     this.dc += 0.002 * (th - this.dc);

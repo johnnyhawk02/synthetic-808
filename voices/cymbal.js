@@ -1,7 +1,7 @@
 // Cymbal (port of app/src/cymbal.rs). Reads the two high-passed metal mixes from metal.js
 // (`hi` ≈7.1 kHz, `lo` ≈3.4 kHz).
 
-import { sgnpow, histLen } from './dsp.js';
+import { sgnpow, histLen, follow } from './dsp.js';
 
 /** RBJ high-pass coefficients [b0, b1, −a1, −a2] from sin/cos and 2Q. */
 function rbjHp(s, c, twoQ) {
@@ -30,8 +30,16 @@ export function stretchFor(dec) {
 }
 
 export class Cymbal {
-  constructor(sr) {
+  /** @param {number} sr  sample rate the voice runs at  @param {number} [os] oversampling factor included in sr */
+  constructor(sr, os = 1) {
     this.sr = sr;
+    this.os = os;
+    this.k02 = follow(0.02, os);
+    this.kGsUp = follow(0.1666666666667, os);
+    this.kS = follow(0.25, os);
+    this._volKey = NaN; this._lvlT = 0;
+    this._decKey = NaN; this._stKey = NaN; this._dc = {};
+    this._toneKey = NaN; this._tc = {};
     /** stretch applied to every envelope time (1 = unstretched) */
     this.stretch = 1;
     this.gateLeft = 0; this.trigVal = 0; this.vel = 1;
@@ -75,19 +83,32 @@ export class Cymbal {
     if (this._sr !== this.sr) this._coefs();
     const { c2498, g489, c709, c9992, c8692, c1530, c220, dcc } = this;
 
-    const lvlT = sgnpow(vol, 1.12);
-    this.toneS += (tone - this.toneS) * 0.02;
-    this.lvlS += (lvlT - this.lvlS) * 0.02;
-    this.decS += (dec - this.decS) * 0.02;
-    const d = this.decS;
-    const x3 = sgnpow(d, 0.333);
-    const x6 = sgnpow(d, 0.666);
-    const st = this.stretch;
-    const t1 = (5000 - 2000 * x3) * st;
-    const t2 = (10000 + 40000 * x6) * st;
-    const aMul = 0.15 * x6 + 0.75;
-    const t3 = (x6 * 2222 + 3333) * st;
-    const t4 = t3 * 0.15;
+    if (vol !== this._volKey) { this._volKey = vol; this._lvlT = sgnpow(vol, 1.12); }
+    const lvlT = this._lvlT;
+    this.toneS += (tone - this.toneS) * this.k02;
+    this.lvlS += (lvlT - this.lvlS) * this.k02;
+    this.decS += (dec - this.decS) * this.k02;
+    // decay-dependent envelope times, recomputed only when DEC or the stretch changes
+    if (this.decS !== this._decKey || this.stretch !== this._stKey) {
+      this._decKey = this.decS; this._stKey = this.stretch;
+      const d = this.decS;
+      const x3 = sgnpow(d, 0.333);
+      const x6 = sgnpow(d, 0.666);
+      const st = this.stretch * this.os; // envelope times below are in samples
+      const t1 = (5000 - 2000 * x3) * st;
+      const t2 = (10000 + 40000 * x6) * st;
+      const t3 = (x6 * 2222 + 3333) * st;
+      const t4 = t3 * 0.15;
+      const c = this._dc;
+      c.aMul = 0.15 * x6 + 0.75;
+      c.rateQ = Math.abs(t2) > 1 ? 1 / Math.abs(t2) : 1;
+      c.rateP = Math.abs(t1) > 1 ? 1 / Math.abs(t1) : 1;
+      c.rateR = 1 / Math.max(Math.abs(t3), 1);
+      c.rateT = 1 / Math.max(Math.abs(t4), 1);
+      c.gsDn = follow(0.0166666666667 / this.stretch, this.os);
+      c.r0Dn = follow(0.002732240437 / this.stretch, this.os);
+    }
+    const { aMul, rateQ, rateP, rateR, rateT, gsDn, r0Dn } = this._dc;
 
     // trigger
     let trig = 0;
@@ -97,14 +118,12 @@ export class Cymbal {
     this.hist[this.histPos] = trig;
     this.histPos = (this.histPos + 1) % this.hist.length;
     const g = this.g;
-    this.gs += (g - this.gs) * (g > this.gs ? 0.1666666666667 : 0.0166666666667 / st);
+    this.gs += (g - this.gs) * (g > this.gs ? this.kGsUp : gsDn);
     const vg = this.vel * this.gs;
 
     // envelopes
-    const rateQ = Math.abs(t2) > 1 ? 1 / Math.abs(t2) : 1;
     this.q += (vg - this.q) * (this.q < vg ? 1 : rateQ);
     const a = aMul * this.q * 0.1;
-    const rateP = Math.abs(t1) > 1 ? 1 / Math.abs(t1) : 1;
     this.p += (a * 0.35 - this.p) * rateP;
     const u1 = (this.p * -5) * (Math.tanh(1.5 - 8 * lo) - 1);
 
@@ -114,14 +133,12 @@ export class Cymbal {
     this.hPrev = h;
 
     const ap = sgnpow(a, 1.333) * 0.15;
-    const rateR = 1 / Math.max(Math.abs(t3), 1);
-    this.r0 += (vg - this.r0) * (this.r0 < vg ? 1 : 0.002732240437 / st);
+    this.r0 += (vg - this.r0) * (this.r0 < vg ? 1 : r0Dn);
     this.r1 += (vg - this.r1) * (this.r1 < vg ? 1 : rateR);
     const rp = sgnpow(this.r1, 1.333) * 0.1;
-    this.s += ((this.r0 + rp) * 0.1 - this.s) * 0.25;
+    this.s += ((this.r0 + rp) * 0.1 - this.s) * this.kS;
     const s5 = this.s * 5;
     const thHi = Math.tanh(0.5 * (16 * hi + 1.5));
-    const rateT = 1 / Math.max(Math.abs(t4), 1);
     this.t += (rp - this.t) * (this.t < rp ? 1 : rateT);
     const tgt = ap + this.t;
     this.u += (tgt - this.u) * (this.u < tgt ? rateT : 1);
@@ -137,11 +154,15 @@ export class Cymbal {
     this.y1Prev = y1;
 
     // TONE mix
-    const t = this.toneS;
-    const w0 = 0.2 * sgnpow(t, 0.333) + 1;
-    const e = 1.222 * sgnpow(t, 1.125) + 0.5;
-    const kw = 0.12 - 0.07 * sgnpow(t, 0.888);
-    const m3 = sgnpow(1 - t, 1.888) * 0.1 + 0.01;
+    if (this.toneS !== this._toneKey) {
+      this._toneKey = this.toneS;
+      const t = this.toneS, c = this._tc;
+      c.w0 = 0.2 * sgnpow(t, 0.333) + 1;
+      c.e = 1.222 * sgnpow(t, 1.125) + 0.5;
+      c.kw = 0.12 - 0.07 * sgnpow(t, 0.888);
+      c.m3 = sgnpow(1 - t, 1.888) * 0.1 + 0.01;
+    }
+    const { w0, e, kw, m3 } = this._tc;
     const mix = (1.5 * y0 * w0 + 12 * this.w * kw - 6 * this.l489 * m3) * e;
     this.z220 = (this.z220 + mix - this.mixPrev) * c220;
     this.mixPrev = mix;

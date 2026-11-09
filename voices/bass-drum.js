@@ -35,6 +35,7 @@ export class BassDrum {
     this.y1 = 0; this.y2 = 0;
     this.peak = 0;
     this.z = 0;
+    this._volKey = NaN; this._dKey = NaN; this._tauKey = NaN; this._atkKey = NaN;
   }
 
   /** velocity: 1 for a hit, 2 accented. */
@@ -48,7 +49,8 @@ export class BassDrum {
   tick(tuneKnob, atk, dec, pamt, vol) {
     const sr = this.sr;
     const tune = skewBdTune(tuneKnob);
-    const lvlTarget = sgnpow(vol, 1.12);
+    if (vol !== this._volKey) { this._volKey = vol; this._lvlT = sgnpow(vol, 1.12); }
+    const lvlTarget = this._lvlT;
 
     this.decS += 0.02 * (dec - this.decS);
     this.pamtS += 0.02 * (pamt - this.pamtS);
@@ -90,9 +92,14 @@ export class BassDrum {
       f = 115.0;
     } else {
       this.kickFlag = this.env1 === 1 ? 1 : 0;
-      const d = this.decS * 0.9 + 0.1;
-      this.env1 *= Math.exp(-9 / (sr * 0.35 * d));
-      this.env2 *= Math.exp(-3 / (sr * 12 * d));
+      if (this.decS !== this._dKey) {
+        this._dKey = this.decS;
+        const d = this.decS * 0.9 + 0.1;
+        this._k1 = Math.exp(-9 / (sr * 0.35 * d));
+        this._k2 = Math.exp(-3 / (sr * 12 * d));
+      }
+      this.env1 *= this._k1;
+      this.env2 *= this._k2;
       const pm = this.pamtS * 1.9 + 0.1;
       const am = a * 0.1 + 0.9;
       f = tuneMul * (tuneSel - 8.67) + this.env2 * pm * 0.5 * am + this.env1 * pm * 15 * am;
@@ -100,7 +107,8 @@ export class BassDrum {
     const m = gm + 0.7;
     const w = 2 * Math.PI * f / sr;
     const tau = 0.2 + 3.3 * this.decS * this.decS;
-    const r = Math.min(Math.exp(-6 / (tau * sr)), 0.9999999);
+    if (tau !== this._tauKey) { this._tauKey = tau; this._r = Math.min(Math.exp(-6 / (tau * sr)), 0.9999999); }
+    const r = this._r;
     const exc = this.eFall * k + this.eRise * k * 1.5 + gk;
     const s = Math.sin(w), c = Math.cos(w);
 
@@ -112,7 +120,8 @@ export class BassDrum {
     const q = (1.5 - m) * (1.5 * this.env1 * this.env1 + 0.2 * this.env2) * (0.2 * this.env2);
     const neg = Math.max(-y2n, 0);
     const o = (y2n + neg * neg * q) * 0.3;
-    const gcoef = Math.tan(Math.PI * (this.atkS * this.atkS * 7200 + 600) / sr);
+    if (this.atkS !== this._atkKey) { this._atkKey = this.atkS; this._gcoef = Math.tan(Math.PI * (this.atkS * this.atkS * 7200 + 600) / sr); }
+    const gcoef = this._gcoef;
     const y1n = r * (this.y1 * c - this.y2 * s) + aa * this.kickFlag * 0.08465;
     this.z = (o - this.peak) * gcoef + this.z * (1 - gcoef);
     const out = this.lvl * this.z * -45;

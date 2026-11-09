@@ -58,7 +58,7 @@ const RUST_NAMES = ['Accent', 'Bass', 'Snare', 'LowTom', 'MidTom', 'HiTom', 'Rim
 const engine = (name, voice, acc, sw) => {
   const p = new D.Params({ TRG_VOL: 0.5, AC_LEVEL: 0.6, DRIVE: 0.3, MAIN_VCA: 1 });
   if (sw) p.set(sw, 1 - D.Params.defaultOf(sw));
-  const e = new D.Engine(48000, p);
+  const e = new D.Engine(48000, p, { oversample: 1 });
   e.trigger(voice, acc);
   const out = new Float32Array(48000);
   for (let o = 0; o < out.length; o += 512) e.render(out.subarray(o, Math.min(o + 512, out.length)), 1);

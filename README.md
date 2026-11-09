@@ -106,12 +106,23 @@ http://localhost:8000.
 
 The files must be served over http(s), since worklets can't load modules from `file://`.
 
+## Oversampling
+
+`new Engine(sampleRate, params)` runs the toms, rim, cowbell, cymbal and hats at twice the sample rate
+and filters them back down with a 47-tap halfband filter (flat to about 20 kHz). This removes most of
+the aliasing in the hats and cymbal; the bass drum, snare, clap and accent stay at the normal rate.
+Decay times and tuning are the same at either rate. Pass `{ oversample: 1 }` as a third argument to
+turn it off; at 1x the output matches the Rust exactly.
+
+Voices that have finished sounding stop being computed until they're next triggered, so a typical
+beat uses only a few percent of one CPU core.
+
 ## Tests
 
 - `npm test` checks that every voice, and each alternate mode, sounds and stays finite and bounded,
   and that every parameter stays stable at both ends of its extended range.
 - `npm run test:rust` (needs Rust, and `synthetic-808` checked out next to this repo) renders
-  reference audio from `synthetic-808/app/src` and compares the JS against it. Last run: the individual voices matched to about 1e-13 of their peak at 44.1 and
+  reference audio from `synthetic-808/app/src` and compares the JS (at 1x) against it. Last run: the individual voices matched to about 1e-13 of their peak at 44.1 and
   48 kHz, normal and accented. The full engine matched to about 1e-6, and the clap to about 1e-4,
   because the Rust mixer and clap run in single precision.
 

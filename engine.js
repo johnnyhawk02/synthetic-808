@@ -11,7 +11,7 @@ import { Clap } from './voices/clap.js';
 import { Cowbell } from './voices/cowbell.js';
 import { Cymbal, stretchFor } from './voices/cymbal.js';
 import { Hats } from './voices/hats.js';
-import { sgnpow } from './voices/dsp.js';
+import { sgnpow, HalfbandDecimator } from './voices/dsp.js';
 
 export const VOICES = [
   'accent', 'bass', 'snare', 'lowTom', 'midTom', 'hiTom',
@@ -37,21 +37,41 @@ const TOM_KEYS = [
   ['HT_VOL', 'HT_TUNE', 'HT_DEC', 'HT_ATK', 'HT_FLT', 'HT_SW'],
 ];
 
+/** Voices that run oversampled: everything built on square waves or hard clipping.
+ * The bass drum, snare and clap stay at the output rate (they are smooth resonators or
+ * filtered noise and barely alias, and their trigger excitation is defined per sample). */
+export const OVERSAMPLED = Object.freeze(['lowTom', 'midTom', 'hiTom', 'rim', 'cowbell', 'cymbal', 'openHat', 'closedHat']);
+
 export class Engine {
-  /** @param {number} sr sample rate  @param {Params} [params] */
-  constructor(sr, params = new Params()) {
+  /**
+   * @param {number} sr output sample rate
+   * @param {Params} [params]
+   * @param {{oversample?: 1|2}} [options] oversample: 2 (default) runs the voices listed in
+   *   OVERSAMPLED at twice the rate to cut aliasing; 1 matches the Rust app sample for sample.
+   */
+  constructor(sr, params = new Params(), { oversample = 2 } = {}) {
+    if (oversample !== 1 && oversample !== 2) throw new Error('oversample must be 1 or 2');
     this.sr = sr;
+    this.os = oversample;
     this.params = params;
     this.accent = { left: 0, amp: 0 };
     this.bass = new BassDrum(sr);
     this.snare = new Snare(sr);
-    this.toms = [new Tom(LOW, sr, 0x1111), new Tom(MID, sr, 0x2222), new Tom(HIGH, sr, 0x3333)];
-    this.rim = new RimShot(sr);
     this.clap = new Clap(sr, 0x12345678);
-    this.cowbell = new Cowbell(sr);
-    this.metal = new Metal(sr);
-    this.cymbal = new Cymbal(sr);
-    this.hats = new Hats(sr);
+    const osr = sr * oversample, os = oversample;
+    this.toms = [new Tom(LOW, osr, 0x1111, os), new Tom(MID, osr, 0x2222, os), new Tom(HIGH, osr, 0x3333, os)];
+    this.rim = new RimShot(osr, os);
+    this.cowbell = new Cowbell(osr, os);
+    this.metal = new Metal(osr, os);
+    this.cymbal = new Cymbal(osr, os);
+    this.hats = new Hats(osr, os);
+    this.decimator = new HalfbandDecimator();
+    this._sub = new Float64Array(2);
+    // idle voices are put to sleep (not ticked) after this many silent samples at their own rate
+    this.idle = new Float64Array(12);
+    this._awake = new Uint8Array(12);
+    this.sleepAfter = new Float64Array(12).fill(sr * 0.25);
+    for (let i = 3; i < 12; i++) if (i !== 7) this.sleepAfter[i] *= oversample;
     this.gains = new Float64Array(12).fill(1);
     this.hpX = 0; this.hpY = 0;
     this.hpR = Math.exp(-2 * Math.PI * OUT_HP_HZ / sr);
@@ -65,6 +85,7 @@ export class Engine {
   trigger(voice, accented = false) {
     const i = typeof voice === 'number' ? voice : VOICE_INDEX[voice];
     if (i === undefined) throw new Error(`unknown voice ${voice}`);
+    this.idle[i] = 0;
     const p = this.params;
     const sr = this.sr;
     const vel = accented ? 2 : 1;
@@ -104,19 +125,38 @@ export class Engine {
 
   /** Rebuild one voice's DSP state (used when extreme settings make it unstable). */
   _resetVoice(i) {
-    const sr = this.sr;
+    const sr = this.sr, os = this.os, osr = sr * os;
     this.resets = (this.resets || 0) + 1;
     switch (i) {
       case 1: this.bass = new BassDrum(sr); break;
       case 2: this.snare = new Snare(sr); break;
       case 3: case 4: case 5:
-        this.toms[i - 3] = new Tom([LOW, MID, HIGH][i - 3], sr, 0x1111 * (i - 2)); break;
-      case 6: this.rim = new RimShot(sr); break;
+        this.toms[i - 3] = new Tom([LOW, MID, HIGH][i - 3], osr, 0x1111 * (i - 2), os); break;
+      case 6: this.rim = new RimShot(osr, os); break;
       case 7: this.clap = new Clap(sr, 0x12345678); break;
-      case 8: this.cowbell = new Cowbell(sr); this.metal = new Metal(sr); break;
-      case 9: this.cymbal = new Cymbal(sr); this.metal = new Metal(sr); break;
-      case 10: case 11: this.hats = new Hats(sr); this.metal = new Metal(sr); break;
+      case 8: this.cowbell = new Cowbell(osr, os); this.metal = new Metal(osr, os); break;
+      case 9: this.cymbal = new Cymbal(osr, os); this.metal = new Metal(osr, os); break;
+      case 10: case 11: this.hats = new Hats(osr, os); this.metal = new Metal(osr, os); break;
     }
+  }
+
+  /** Sum voices [from, to) with their levels; resets any voice that has blown up. */
+  _mix(v, from, to, trgLevel, hcLevel, peaks) {
+    let sum = 0;
+    const gains = this.gains;
+    for (let i = from; i < to; i++) {
+      // safety net for extreme knob settings: a voice that blows up is reset instead of
+      // leaving the whole kit stuck on NaN
+      const av = Math.abs(v[i]);
+      if (i > 0 && !(av < 1e4)) { this._resetVoice(i); v[i] = 0; }
+      if (av < 1e-7) this.idle[i]++; else this.idle[i] = 0;
+      const level = i === 0 ? trgLevel : i === 7 ? hcLevel : 1;
+      const s = v[i] * level * gains[i];
+      const a = Math.abs(s);
+      if (a > peaks[i]) peaks[i] = a;
+      sum += s;
+    }
+    return sum;
   }
 
   /**
@@ -134,7 +174,7 @@ export class Engine {
     const vca = p.get('MAIN_VCA') > 0.5;
     const peaks = this._peaks.fill(0);
     const v = this._v;
-    const gains = this.gains;
+    const os = this.os;
 
     this.snare.prepare({
       tone: p.get('SD_TONE'), snappy: p.get('SD_SNAPPY'), decay: p.get('SD_DECAY'),
@@ -165,39 +205,39 @@ export class Engine {
 
     const frames = Math.floor(out.length / channels);
     for (let f = 0; f < frames; f++) {
+      for (let i = 1; i < 12; i++) this._awake[i] = this.idle[i] < this.sleepAfter[i];
       // accent / trigger-out pulse
       v[0] = 0;
       if (this.accent.left > 0) { this.accent.left -= 1; v[0] = this.accent.amp * 0.8; }
 
-      v[1] = this.bass.tick(bd[0], bd[1], bd[2], bd[3], bd[4]) * BD_POST_GAIN;
-      v[2] = this.snare.tick(sdBal, sdPitch) * sdLevel;
-      for (let i = 0; i < 3; i++) {
-        const t = tomK[i];
-        v[3 + i] = this.toms[i].tick(t.tune, t.dec, t.atk, t.flt) * t.lv;
-      }
-      v[6] = this.rim.tick(rimKnobs) * rsLevel;
+      const awake = this._awake;
+      v[1] = awake[1] ? this.bass.tick(bd[0], bd[1], bd[2], bd[3], bd[4]) * BD_POST_GAIN : 0;
+      v[2] = awake[2] ? this.snare.tick(sdBal, sdPitch) * sdLevel : 0;
       v[7] = this.clap.tick();
-      const mo = this.metal.tick(metalKnobs);
-      v[8] = this.cowbell.tick(mo.cb1, mo.cb2, cbVol, cbDec) * CB_POST_GAIN;
-      v[9] = this.cymbal.tick(mo.hi, mo.lo, rcVol, rcTone, rcDec) * RC_POST_GAIN;
-      const hats = this.hats.tick(mo.hi, chDec, ohDec);
-      v[10] = hats.open * ohLevel;
-      v[11] = hats.closed * chLevel;
+      let sum = this._mix(v, 0, 3, trgLevel, hcLevel, peaks) + this._mix(v, 7, 8, trgLevel, hcLevel, peaks);
 
-      // safety net for extreme knob settings: a voice that blows up is reset instead of
-      // leaving the whole kit stuck on NaN
-      for (let i = 1; i < 12; i++) {
-        if (!(Math.abs(v[i]) < 1e4)) { this._resetVoice(i); v[i] = 0; }
+      // oversampled voices: tick `os` times, then decimate their mix back to the output rate
+      const sub = this._sub;
+      for (let k = 0; k < os; k++) {
+        for (let i = 0; i < 3; i++) {
+          const t = tomK[i];
+          v[3 + i] = awake[3 + i] ? this.toms[i].tick(t.tune, t.dec, t.atk, t.flt) * t.lv : 0;
+        }
+        v[6] = awake[6] ? this.rim.tick(rimKnobs) * rsLevel : 0;
+        const hatsOn = awake[10] || awake[11];
+        if (awake[8] || awake[9] || hatsOn) {
+          const mo = this.metal.tick(metalKnobs);
+          v[8] = awake[8] ? this.cowbell.tick(mo.cb1, mo.cb2, cbVol, cbDec) * CB_POST_GAIN : 0;
+          v[9] = awake[9] ? this.cymbal.tick(mo.hi, mo.lo, rcVol, rcTone, rcDec) * RC_POST_GAIN : 0;
+          if (hatsOn) {
+            const hats = this.hats.tick(mo.hi, chDec, ohDec);
+            v[10] = hats.open * ohLevel;
+            v[11] = hats.closed * chLevel;
+          } else { v[10] = 0; v[11] = 0; }
+        } else { v[8] = 0; v[9] = 0; v[10] = 0; v[11] = 0; }
+        sub[k] = this._mix(v, 3, 7, trgLevel, hcLevel, peaks) + this._mix(v, 8, 12, trgLevel, hcLevel, peaks);
       }
-
-      let sum = 0;
-      for (let i = 0; i < 12; i++) {
-        const level = i === 0 ? trgLevel : i === 7 ? hcLevel : 1;
-        const s = v[i] * level * gains[i];
-        const a = Math.abs(s);
-        if (a > peaks[i]) peaks[i] = a;
-        sum += s;
-      }
+      sum += os === 2 ? this.decimator.push(sub[0], sub[1]) : sub[0];
 
       // master: drive, VCA mode, output high-pass, volume
       let y = sum * 0.5;

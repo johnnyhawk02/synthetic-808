@@ -42,8 +42,19 @@ class Hat {
 }
 
 export class Hats {
-  constructor(sr) {
+  /** @param {number} sr  sample rate the hats run at  @param {number} [os] oversampling factor included in sr */
+  constructor(sr, os = 1) {
     this.sr = sr;
+    this.os = os;
+    // one-pole low-pass coefficients: sin/(1+sin+cos) of 2π·10 kHz and 9672.96/sr (≈1539.5 Hz)
+    const w1 = 2 * Math.PI * 10000 / sr;
+    const s1 = Math.sin(w1), c1 = Math.cos(w1);
+    this.g1 = s1 / (1 + s1 + c1);
+    const s2 = Math.sin(9672.96378 / sr), c2 = Math.cos(9672.96378 / sr);
+    this.g2 = s2 / (1 + s2 + c2);
+    this.kC = Math.tan(78539.81634 / (2 * sr));
+    this.kO = Math.tan(57302.65 / (2 * sr));
+    this._ohKey = NaN; this._ohCoef = 0;
     this.closed = new Hat(sr);
     this.open = new Hat(sr);
     this.out = { closed: 0, open: 0 };
@@ -61,12 +72,7 @@ export class Hats {
   /** m: metal signal; chDec = CH_DEC, ohDec = OH_DEC. Returns {closed, open} (reused object). */
   tick(m, chDec, ohDec) {
     const sr = this.sr;
-    // one-pole low-pass coefficients: sin/(1+sin+cos) of 2π·10 kHz and 9672.96/sr (≈1539.5 Hz)
-    const w1 = 2 * Math.PI * 10000 / sr;
-    const s1 = Math.sin(w1), c1 = Math.cos(w1);
-    const g1 = s1 / (1 + s1 + c1);
-    const s2 = Math.sin(9672.96378 / sr), c2 = Math.cos(9672.96378 / sr);
-    const g2 = s2 / (1 + s2 + c2);
+    const g1 = this.g1, g2 = this.g2;
 
     // closed hat: linear decay 0.000279·(2.2−2.1·dec) per sample (×0.4 below 0.3),
     // raised to (0.1·acc + 2), into tanh VCA, high-pass 12.5 kHz Q 2.5, low-pass 10 kHz, ×(−10)
@@ -76,22 +82,22 @@ export class Hats {
     let e = g !== 0 ? g : c.env;
     e = clamp(e, 0, 1);
     let r = 0.3 < e ? rate : rate * 0.4;
-    e = clamp(e + r * -0.000279, 0, 1);
+    e = clamp(e + r * -0.000279 / this.os, 0, 1);
     c.env = e;
     const acc = ((c.vel - 0.25) * 4 / 3) * 0.1 + 2;
     const ep = acc !== 1 ? sgnpow(e, acc) : e;
     const envC = c.vel * ep;
     let th = Math.tanh(m * 6 + 1 + envC * -0.5) - 1;
     let xin = envC * -th;
-    let k = Math.tan(78539.81634 / (2 * sr));
-    let y = c.hp.hp(xin, k, 2.5);
+    let y = c.hp.hp(xin, this.kC, 2.5);
     c.lp = g1 * y + g1 * c.lpPrevIn + c.lp * (1 - g1);
     c.lpPrevIn = y;
     const outC = c.lp * -10;
 
     // open hat: two-stage decay with coef (1−dec)^3.333·1.25+0.25, cubed × velocity,
     // tanh VCA, high-pass 9.12 kHz Q 2, low-pass ≈1.54 kHz, ×(−20)
-    const coef = Math.pow(Math.max(1 - ohDec, 0), 3.333) * 1.25 + 0.25;
+    if (ohDec !== this._ohKey) { this._ohKey = ohDec; this._ohCoef = Math.pow(Math.max(1 - ohDec, 0), 3.333) * 1.25 + 0.25; }
+    const coef = this._ohCoef;
     const o = this.open;
     g = o.gate();
     e = g !== 0 ? g : o.env;
@@ -100,13 +106,12 @@ export class Hats {
     const slow = normal ? coef : 2.5;
     const fast = (normal ? 6 : 2) * coef;
     r = 0.44 < e ? slow : fast;
-    e = clamp(e + r * -6e-05, 0, 1);
+    e = clamp(e + r * -6e-05 / this.os, 0, 1);
     o.env = e;
     const envO = sgnpow(e, 3) * o.vel;
     th = Math.tanh(m * 6 + 1 + envO * -0.5) - 1;
     xin = envO * -th;
-    k = Math.tan(57302.65 / (2 * sr));
-    y = o.hp.hp(xin, k, 2);
+    y = o.hp.hp(xin, this.kO, 2);
     o.lp = g2 * y + g2 * o.lpPrevIn + o.lp * (1 - g2);
     o.lpPrevIn = y;
     const outO = o.lp * -20;

@@ -1,10 +1,23 @@
 // Cowbell (port of app/src/cb.rs). Takes the two cowbell oscillators from the metal bank (metal.js).
 
-import { sgnpow, histLen } from './dsp.js';
+import { sgnpow, histLen, follow } from './dsp.js';
 
 export class Cowbell {
-  constructor(sr) {
+  /** @param {number} sr  sample rate the voice runs at  @param {number} [os] oversampling factor included in sr */
+  constructor(sr, os = 1) {
     this.sr = sr;
+    this.kS = follow(0.0151515151515, os);
+    this.kDc = follow(0.002, os);
+    // fixed coefficients
+    const ms = sr * 0.001, rad = 2 * Math.PI / sr, invSr = 1 / sr;
+    this.r500 = 1 / (1 + 500 * rad);
+    this.gF = Math.tan(2706.778789 / sr);
+    this.invA = 1 / (1 + 328.8 * rad);
+    this.invB = 1 / (1 + 19.4 * rad);
+    this.alphaLp = invSr / (1.034817577e-4 + invSr);
+    this.relF = Math.abs(6.33 * ms) > 1 ? 1 / (6.33 * ms) : 1;
+    this.attP = Math.abs(0.5 * ms) > 1 ? 1 / (0.5 * ms) : 1;
+    this._dKey = NaN; this._dfac = 0;
     this.gateLeft = 0; this.velIn = 0; this.accVel = 0;
     this.lvlS = 0; this.decS = 0.5;
     this.hist = new Float64Array(histLen(sr));
@@ -25,23 +38,16 @@ export class Cowbell {
   tick(cb1, cb2, vol, dec) {
     const sr = this.sr;
     const ms = sr * 0.001;
-    const rad = 2 * Math.PI / sr;
-    const r500 = 1 / (1 + 500 * rad);
-    const g = Math.tan(2706.778789 / sr);
+    const r500 = this.r500, g = this.gF, invA = this.invA, invB = this.invB;
     const kq = 0.1846023136;
     const denom = 1 + kq * g + g * g;
-    const invA = 1 / (1 + 328.8 * rad);
-    const invB = 1 / (1 + 19.4 * rad);
-    const invSr = 1 / sr;
-    const alpha = invSr / (1.034817577e-4 + invSr);
-    const relF = Math.abs(6.33 * ms) > 1 ? 1 / (6.33 * ms) : 1;
-    const attP = Math.abs(0.5 * ms) > 1 ? 1 / (0.5 * ms) : 1;
+    const alpha = this.alphaLp, relF = this.relF, attP = this.attP;
 
     let gate = 0;
     if (this.gateLeft > 0) { this.gateLeft -= 1; gate = 1; }
     if (gate !== 0) this.accVel = this.velIn;
-    this.lvlS += (vol - this.lvlS) * 0.0151515151515;
-    this.decS += (dec - this.decS) * 0.0151515151515;
+    this.lvlS += (vol - this.lvlS) * this.kS;
+    this.decS += (dec - this.decS) * this.kS;
     const d9 = this.decS * 0.9;
     const e = d9 * -0.666 + 0.999;
 
@@ -53,7 +59,8 @@ export class Cowbell {
 
     this.f += (g_ - this.f) * (this.f < g_ ? 1 : relF);
     const fp = e !== 1 ? sgnpow(this.f, e) : this.f;
-    const dfac = sgnpow(d9, 2.5) * 3 + 0.33;
+    if (d9 !== this._dKey) { this._dKey = d9; this._dfac = sgnpow(d9, 2.5) * 3 + 0.33; }
+    const dfac = this._dfac;
     const acc = (this.accVel - 0.25) * (4 / 3);
     const aEnv = acc * 0.467 + 0.333;
     const relH = Math.max(Math.abs(ms * dfac * (acc * 5 + 10)), 1);
@@ -88,7 +95,7 @@ export class Cowbell {
     this.z1lPrev = zl;
     this.w += (-this.z2 - this.w) * alpha;
     const o = this.w - this.dc;
-    this.dc += 0.002 * o;
+    this.dc += this.kDc * o;
     return o * -20;
   }
 }
