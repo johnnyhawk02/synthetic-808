@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Synthetic 808 drum voices</title>
+<meta name="description" content="Twelve analogue-style drum voices synthesised live in the browser, with a 16-step sequencer.">
+<link rel="stylesheet" href="demo/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <h1>Synthetic&nbsp;808</h1>
+    <p>Twelve drum voices, synthesised sample by sample in your browser</p>
+  </div>
+  <div class="transport">
+    <button id="play" class="play" aria-pressed="false"><span class="icon"></span><span class="label">Play</span></button>
+    <label class="field">Tempo <input id="bpm" type="number" min="30" max="300" value="120"> <span class="unit">BPM</span></label>
+    <label class="field">Swing <input id="swing" type="range" min="0" max="0.4" step="0.01" value="0"></label>
+    <div class="presets" role="group" aria-label="Patterns">
+      <button data-preset="basic">Basic</button>
+      <button data-preset="electro">Electro</button>
+      <button data-preset="latin">Latin</button>
+      <button data-preset="clear">Clear</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="panel" id="panel" aria-label="Voices"></section>
+  <section class="seq-wrap" aria-label="Sequencer">
+    <div class="seq-head">
+      <h2>Pattern</h2>
+      <p class="hint">Click a step to add a hit, click again to accent it, once more to clear. Pads play from the keyboard: <kbd>A</kbd>–<kbd>'</kbd>, hold <kbd>Shift</kbd> to accent, <kbd>Space</kbd> starts and stops.</p>
+    </div>
+    <div class="seq" id="seq"></div>
+  </section>
+</main>
+
+<footer>
+  <p>Sound engine: <a href="https://github.com/johnnyhawk02/synthetic-808">synthetic-808</a>, plain ES modules running in an AudioWorklet.</p>
+</footer>
+
+<script type="module" src="demo/app.js"></script>
+</body>
+</html>
