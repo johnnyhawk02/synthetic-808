@@ -12,6 +12,7 @@ import { Rim808, RIM_FIT } from './voices/rim-808.js';
 import { Clap } from './voices/clap.js';
 import { Clap808, CLAP_FIT } from './voices/clap-808.js';
 import { Cowbell } from './voices/cowbell.js';
+import { Cowbell808, COWBELL_FIT } from './voices/cowbell-808.js';
 import { Cymbal, stretchFor } from './voices/cymbal.js';
 import { Cymbal808, CYMBAL_FIT } from './voices/cymbal-808.js';
 import { Hats } from './voices/hats.js';
@@ -70,7 +71,8 @@ export class Engine {
     this.toms = [0, 1, 2].map((k) => this._newTom(k));
     this.rimLegacy = !!RIM_FIT.legacy;
     this.rim = this.rimLegacy ? new RimShot(osr, os) : new Rim808(osr, os);
-    this.cowbell = new Cowbell(osr, os);
+    this.cowbellLegacy = !!COWBELL_FIT.legacy;
+    this.cowbell = this.cowbellLegacy ? new Cowbell(osr, os) : new Cowbell808(osr, os);
     this.metal = new Metal(osr, os);
     this.cymbalLegacy = !!CYMBAL_FIT.legacy;
     this.cymbal = this.cymbalLegacy ? new Cymbal(osr, os) : new Cymbal808(osr, os);
@@ -153,7 +155,7 @@ export class Engine {
         this.toms[i - 3] = this._newTom(i - 3); break;
       case 6: this.rim = this.rimLegacy ? new RimShot(osr, os) : new Rim808(osr, os); break;
       case 7: this.clap = this.clapLegacy ? new Clap(sr, 0x12345678) : new Clap808(sr, 0x12345678); break;
-      case 8: this.cowbell = new Cowbell(osr, os); this.metal = new Metal(osr, os); break;
+      case 8: this.cowbell = this.cowbellLegacy ? new Cowbell(osr, os) : new Cowbell808(osr, os); this.metal = new Metal(osr, os); break;
       case 9: this.cymbal = this.cymbalLegacy ? new Cymbal(osr, os) : new Cymbal808(osr, os); this.metal = new Metal(osr, os); break;
       case 10: case 11: this.hats = new Hats(osr, os); this.metal = new Metal(osr, os); break;
     }
