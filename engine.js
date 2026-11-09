@@ -31,7 +31,7 @@ const TOM_POST_GAIN = [0.0513, 0.0457, 0.0393];
 const RS_POST_GAIN = 0.0473;
 const CB_POST_GAIN = 0.0446;
 const RC_POST_GAIN = 0.01174;
-const RC_808_GAIN = 0.48; // fitted cymbal (cymbal-808.js), about as loud as the Rust one
+const RC_808_GAIN = 39; // fitted cymbal (cymbal-808.js), about as loud as the Rust one
 const HAT_POST_GAIN = [0.039, 0.0462]; // [closed, open]
 
 const TOM_KEYS = [
@@ -241,7 +241,7 @@ export class Engine {
           v[8] = awake[8] ? this.cowbell.tick(mo.cb1, mo.cb2, cbVol, cbDec) * CB_POST_GAIN : 0;
           v[9] = !awake[9] ? 0 : this.cymbalLegacy
             ? this.cymbal.tick(mo.hi, mo.lo, rcVol, rcTone, rcDec) * cyGain
-            : this.cymbal.tick(mo.raw, rcVol, rcTone, rcDec) * cyGain;
+            : this.cymbal.tick(mo.hi, mo.lo, rcVol, rcTone, rcDec) * cyGain;
           if (hatsOn) {
             const hats = this.hats.tick(mo.hi, chDec, ohDec);
             v[10] = hats.open * ohLevel;
