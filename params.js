@@ -4,7 +4,7 @@ export const PARAMS = [
   ['TRG_VOL', 0.0], ['TRG_WIDTH', 0.5], ['AC_LEVEL', 0.0],
   ['BD_VOL', 0.5], ['BD_ATK', 0.5], ['BD_DEC', 0.5], ['BD_TUNE', 0.5], ['BD_PAMT', 0.5],
   ['SD_VOL', 0.5], ['SD_TONE', 0.5], ['SD_SNAPPY', 0.5], ['SD_DECAY', 0.5], ['SD_NDEC', 0.5],
-  ['SD_BAL', 0.5], ['SD_PITCH', 0.5], ['SD_SW', 1.0],
+  ['SD_BAL', 0.5], ['SD_PITCH', 0.5],
   ['LT_VOL', 0.5], ['LT_TUNE', 0.5], ['LT_DEC', 0.5], ['LT_ATK', 0.5], ['LT_FLT', 0.5], ['LT_SW', 1.0],
   ['MT_VOL', 0.5], ['MT_TUNE', 0.5], ['MT_DEC', 0.5], ['MT_ATK', 0.5], ['MT_FLT', 0.5], ['MT_SW', 1.0],
   ['HT_VOL', 0.5], ['HT_TUNE', 0.5], ['HT_DEC', 0.5], ['HT_ATK', 0.5], ['HT_FLT', 0.5], ['HT_SW', 1.0],
@@ -22,7 +22,7 @@ export const PARAMS = [
 export const DEFAULTS = Object.freeze(Object.fromEntries(PARAMS.map((p) => [p.id, p.default])));
 
 /** Two-position switches: always 0 or 1. */
-export const SWITCHES = Object.freeze(['SD_SW', 'LT_SW', 'MT_SW', 'HT_SW', 'RS_SW', 'HC_SW', 'CB_SW', 'MAIN_VCA']);
+export const SWITCHES = Object.freeze(['LT_SW', 'MT_SW', 'HT_SW', 'RS_SW', 'HC_SW', 'CB_SW', 'MAIN_VCA']);
 
 /**
  * Allowed range for each parameter. The standard knob span is 0..1; these extended ranges

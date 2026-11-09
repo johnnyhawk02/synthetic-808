@@ -1,5 +1,5 @@
-// Snare drum (port of app/src/sd.rs). Two rotating resonators (170/334 Hz, or
-// 255/489 Hz with the MODEL switch) plus a noise path through a state-variable filter.
+// Snare drum (port of app/src/sd.rs, "hi" model). Two rotating resonators at 170 and
+// 334 Hz plus a noise path through a state-variable filter.
 
 import { sgnpow, histLen, XorShift64 } from './dsp.js';
 
@@ -9,19 +9,17 @@ import { sgnpow, histLen, XorShift64 } from './dsp.js';
  * @property {number} snappy  SD_SNAPPY
  * @property {number} decay   SD_DECAY
  * @property {number} ndec    SD_NDEC
- * @property {boolean} modelHi  SD_SW > 0.5
  * @property {number} color   noise colour, default 0.25
  */
 
 export const SNARE_DEFAULT_KNOBS = Object.freeze({
-  tone: 0.5, snappy: 0.5, decay: 0.5, ndec: 0.5, modelHi: true, color: 0.25,
+  tone: 0.5, snappy: 0.5, decay: 0.5, ndec: 0.5, color: 0.25,
 });
 
 export class Snare {
   constructor(sr) {
     this.sr = sr;
     this.co = null;
-    this.model = true;
     this.balS = 0.5; this.pitchS = 0.5;
     this.gateLeft = 0; this.velIn = 0; this.vel = 0; this.prevTa = 0; this.g = 0;
     this.hist = new Float64Array(histLen(sr));
@@ -73,7 +71,6 @@ export class Snare {
       snapK: snapG * 1.222,
       e2Mix: k.snappy * 0.0001 + 0.0005,
     };
-    this.model = !!k.modelHi;
   }
 
   /** velocity: 1 for a hit, 2 accented. */
@@ -88,12 +85,11 @@ export class Snare {
     const nz5 = this.noise.next() * 5;
     let ta = 0;
     if (this.gateLeft > 0) { this.gateLeft -= 1; ta = 1; }
-    const m = this.model;
 
     this.balS += (bal - this.balS) * 0.0303030303;
     const balP = sgnpow(this.balS, 1.05);
-    const fa = m ? 170 : 255;
-    const fb = m ? 334 : 489;
+    const fa = 170;
+    const fb = 334;
     const freqA = (1.25 - 0.5 * balP) * fa;
     const freqB = (this.balS * 0.67 + 0.66) * fb;
     this.pitchS += (pitch - this.pitchS) * 0.0303030303;
@@ -135,7 +131,7 @@ export class Snare {
     const sa = Math.sin(wa), ca = Math.cos(wa);
     const ya = c.r1 * (this.bA * ca + this.aA * sa) - xexc;
     this.nLp += (hp - this.nLp) * c.alpha;
-    const tabA = m ? -0.000199999994947575 : -0.000399999989895150;
+    const tabA = -0.000199999994947575;
     const ya2 = ya + ya * tabA * c.dampA;
     const oscA = (ya2 * 0.2 + xexc * -0.2) * c.toneR;
     const nOut = this.nLp * 20 * c.colorK;
@@ -145,7 +141,7 @@ export class Snare {
     const yb = c.r2 * (this.bB * cb - this.aB * sb) + click;
     const aA2 = c.r1 * (this.aA * ca - this.bA * sa);
     const aB2 = c.r2 * (this.aB * cb + this.bB * sb);
-    const tabB = m ? -0.001500000013038516 : -0.001200000010430813;
+    const tabB = -0.001500000013038516;
     const yb2 = yb + tabB * yb * c.dampB;
     const t = (yb2 * -0.3 + click * -0.2) * c.toneT + oscA;
     this.lpOut += (t - this.lpOut) * c.alpha;

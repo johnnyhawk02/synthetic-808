@@ -32,7 +32,7 @@ fn main() {
             let mut b = bd::BassDrum::new(sr);
             dump(&format!("bd_{tag}_{vt}"), &run(&mut |i| { if i == 100 { b.trigger(vel) } b.tick(0.3, 0.7, 0.6, 0.4, 0.8) }));
             let mut s = sd::Snare::new(sr);
-            s.prepare(&sd::SnareKnobs { tone: 0.3, snappy: 0.7, decay: 0.6, ndec: 0.4, model_hi: vel == 1.0, color: 0.25 });
+            s.prepare(&sd::SnareKnobs { tone: 0.3, snappy: 0.7, decay: 0.6, ndec: 0.4, model_hi: true, color: 0.25 });
             dump(&format!("sd_{tag}_{vt}"), &run(&mut |i| { if i == 100 { s.trigger(vel) } s.tick(0.4, 0.6) }));
             for (k, spec) in [&tom::LOW, &tom::MID, &tom::HIGH].iter().enumerate() {
                 let mut t = tom::Tom::new(spec, sr, 0x1111 * (k as u64 + 1));

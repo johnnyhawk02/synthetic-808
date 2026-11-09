@@ -26,7 +26,7 @@ for (const sr of [48000, 44100]) {
     const b = new D.BassDrum(sr);
     cmp(`bd_${tag}`, run((i) => { if (i === 100) b.trigger(vel); return b.tick(0.3, 0.7, 0.6, 0.4, 0.8); }));
     const s = new D.Snare(sr);
-    s.prepare({ tone: 0.3, snappy: 0.7, decay: 0.6, ndec: 0.4, modelHi: vel === 1, color: 0.25 });
+    s.prepare({ tone: 0.3, snappy: 0.7, decay: 0.6, ndec: 0.4, color: 0.25 });
     cmp(`sd_${tag}`, run((i) => { if (i === 100) s.trigger(vel); return s.tick(0.4, 0.6); }));
     [D.LOW, D.MID, D.HIGH].forEach((spec, k) => {
       const t = new D.Tom(spec, sr, 0x1111 * (k + 1));

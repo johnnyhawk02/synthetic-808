@@ -138,7 +138,7 @@ export class Engine {
 
     this.snare.prepare({
       tone: p.get('SD_TONE'), snappy: p.get('SD_SNAPPY'), decay: p.get('SD_DECAY'),
-      ndec: p.get('SD_NDEC'), modelHi: p.get('SD_SW') > 0.5, color: SD_COLOR,
+      ndec: p.get('SD_NDEC'), color: SD_COLOR,
     });
     const bd = [p.get('BD_TUNE'), p.get('BD_ATK'), p.get('BD_DEC'), p.get('BD_PAMT'), p.get('BD_VOL')];
     const sdBal = p.get('SD_BAL'), sdPitch = p.get('SD_PITCH');
