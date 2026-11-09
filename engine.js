@@ -3,6 +3,7 @@
 
 import { Params } from './params.js';
 import { Metal } from './voices/metal.js';
+import { Bass808, BASS_FIT } from './voices/bass-808.js';
 import { BassDrum } from './voices/bass-drum.js';
 import { Snare, SNARE_FIT } from './voices/snare.js';
 import { Tom, LOW, MID, HIGH } from './voices/tom.js';
@@ -62,7 +63,8 @@ export class Engine {
     this.os = oversample;
     this.params = params;
     this.accent = { left: 0, amp: 0 };
-    this.bass = new BassDrum(sr);
+    this.bassLegacy = !!BASS_FIT.legacy;
+    this.bass = this.bassLegacy ? new BassDrum(sr) : new Bass808(sr);
     this.snare = new Snare(sr);
     this.clapLegacy = !!CLAP_FIT.legacy;
     this.clap = this.clapLegacy ? new Clap(sr, 0x12345678) : new Clap808(sr, 0x12345678);
@@ -149,7 +151,7 @@ export class Engine {
     const sr = this.sr, os = this.os, osr = sr * os;
     this.resets = (this.resets || 0) + 1;
     switch (i) {
-      case 1: this.bass = new BassDrum(sr); break;
+      case 1: this.bass = this.bassLegacy ? new BassDrum(sr) : new Bass808(sr); break;
       case 2: this.snare = new Snare(sr); break;
       case 3: case 4: case 5:
         this.toms[i - 3] = this._newTom(i - 3); break;

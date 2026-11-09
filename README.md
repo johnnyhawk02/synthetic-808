@@ -15,7 +15,8 @@ the output matches it to within floating-point rounding (see Tests).
 
 | File | What it is | Ported from |
 |---|---|---|
-| `voices/bass-drum.js` | `BassDrum` | `bd.rs` |
+| `voices/bass-808.js` | `Bass808`, the bass drum laid out like the TR-808 circuit (used by default) | |
+| `voices/bass-drum.js` | `BassDrum` (the Rust bass drum, `BASS_FIT.legacy = true`) | `bd.rs` |
 | `voices/snare.js` | `Snare` | `sd.rs` |
 | `voices/tom-808.js` | `Tom808`, toms and congas laid out like the TR-808 boards (used by default) | |
 | `voices/tom.js` | `Tom` plus the `LOW`, `MID`, `HIGH` specs (the Rust toms, `TOM_FIT.legacy = true`) | `tom.rs` |
@@ -208,6 +209,14 @@ beat uses only a few percent of one CPU core.
   simulation of the circuit across Decay and to the recording: spectrogram error 6.3 to 4.0 dB.
   Decay scales both envelope times (x1/3 to x3). `COWBELL_FIT.legacy = true` restores the Rust
   cowbell.
+- The bass drum is rebuilt along the lines of the TR-808's bass drum circuit
+  (`voices/bass-808.js`): a bridged-T resonator whose first few milliseconds run at about 2.4x
+  the pitch (a transistor shorts one resistor), a second kick at the normal pitch, a small pitch
+  slide down to the resting ~49 Hz, the trigger's click, and the Tone pot network into a
+  one-pole low-pass computed from its parts. Fitted to a component-level simulation of the
+  circuit and to all 25 Tone x Decay recordings: spectrogram error 6.4 to 5.4 dB. The Attack
+  knob is Tone, as on the machine; Tune moves the pitch (x0.67 to x1.5) and P.Amt the slide
+  depth (0 to x2). `BASS_FIT.legacy = true` restores the Rust bass drum.
 - The Rust clap (legacy) and the mixer run in double precision instead of single precision.
 - The Rust `Engine` also ticks an older unused oscillator bank; the port leaves it out.
 - Meters are a plain `Float32Array` (`engine.meters`) instead of atomics.
