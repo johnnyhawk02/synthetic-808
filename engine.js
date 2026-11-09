@@ -79,12 +79,16 @@ export class Engine {
     this.meters = new Float32Array(12);
     this._v = new Float64Array(12);
     this._peaks = new Float64Array(12);
+    /** optional Sampler (sampler.js); voices with useSample[i] = 1 play recordings instead */
+    this.sampler = null;
+    this.useSample = new Uint8Array(12);
   }
 
   /** @param {string|number} voice  name from VOICES or its index  @param {boolean} accented */
   trigger(voice, accented = false) {
     const i = typeof voice === 'number' ? voice : VOICE_INDEX[voice];
     if (i === undefined) throw new Error(`unknown voice ${voice}`);
+    if (this.useSample[i] && this.sampler?.trigger(i, accented, this.params)) return;
     this.idle[i] = 0;
     const p = this.params;
     const sr = this.sr;
@@ -202,6 +206,8 @@ export class Engine {
     const ohLevel = sgnpow(p.get('OH_VOL'), 1.12) * HAT_POST_GAIN[1];
     const chLevel = sgnpow(p.get('CH_VOL'), 1.12) * HAT_POST_GAIN[0];
     this.cymbal.stretch = stretchFor(rcDec);
+    const sampler = this.sampler;
+    sampler?.prepare(p);
 
     const frames = Math.floor(out.length / channels);
     for (let f = 0; f < frames; f++) {
@@ -238,6 +244,7 @@ export class Engine {
         sub[k] = this._mix(v, 3, 7, trgLevel, hcLevel, peaks) + this._mix(v, 8, 12, trgLevel, hcLevel, peaks);
       }
       sum += os === 2 ? this.decimator.push(sub[0], sub[1]) : sub[0];
+      if (sampler) sum += sampler.tick(peaks);
 
       // master: drive, VCA mode, output high-pass, volume
       let y = sum * 0.5;

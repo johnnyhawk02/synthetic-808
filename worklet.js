@@ -11,6 +11,10 @@
 //   { type: 'params', values: { BD_DEC: 0.8, ... } }       set several
 //   { type: 'pattern', steps: [[...], ...] }               steps[s][voiceIndex]: 0 off, 1 hit, 2 accented
 //   { type: 'transport', playing: true, bpm: 120, swing: 0 }  start/stop (restarts at step 0), tempo, swing 0..0.5
+//   { type: 'samples', calibration: {...}, banks: { BD5050: Float32Array, ... } }  load recordings (see sampler.js)
+//   { type: 'useSample', voices: [1, 2, ...] or 'all' or [] }  which voices play recordings instead of the synth
+//
+// processorOptions: { params: {...}, oversample: 1 | 2 }
 //
 // Messages from the processor:
 //   { type: 'meters', meters: Float32Array(12) }   about 30 times a second
@@ -18,11 +22,13 @@
 
 import { Engine } from './engine.js';
 import { Params } from './params.js';
+import { Sampler } from './sampler.js';
 
 class DrumVoicesProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
-    this.engine = new Engine(sampleRate, new Params(options?.processorOptions?.params ?? {}));
+    const opts = options?.processorOptions ?? {};
+    this.engine = new Engine(sampleRate, new Params(opts.params ?? {}), { oversample: opts.oversample === 1 ? 1 : 2 });
     this.buf = new Float32Array(128);
     this.meterEvery = Math.max(1, Math.round(sampleRate / 30 / 128));
     this.blocks = 0;
@@ -41,6 +47,21 @@ class DrumVoicesProcessor extends AudioWorkletProcessor {
       case 'param': this.engine.params.set(data.id, data.value); break;
       case 'params': for (const [id, v] of Object.entries(data.values)) this.engine.params.set(id, v); break;
       case 'pattern': this.steps = data.steps; break;
+      case 'samples': {
+        const sampler = this.engine.sampler ??= new Sampler();
+        if (data.calibration) sampler.calibration = data.calibration;
+        for (const [name, buf] of Object.entries(data.banks ?? {})) sampler.load(name, buf);
+        break;
+      }
+      case 'useSample': {
+        const on = new Uint8Array(12);
+        if (data.voices === 'all') on.fill(1); else for (const v of data.voices ?? []) on[v] = 1;
+        for (let i = 0; i < 12; i++) {
+          if (this.engine.useSample[i] && !on[i]) this.engine.sampler?.stop(i);
+        }
+        this.engine.useSample.set(on);
+        break;
+      }
       case 'transport':
         if (data.bpm) this.bpm = Math.min(Math.max(data.bpm, 30), 300);
         if (data.swing !== undefined) this.swing = Math.min(Math.max(data.swing, 0), 0.5);

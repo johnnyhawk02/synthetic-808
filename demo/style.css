@@ -20,7 +20,7 @@ body {
   font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
-button { font: inherit; color: inherit; cursor: pointer; }
+button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 kbd { font: 12px ui-monospace, monospace; background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
 a { color: var(--accent-2); }
 
@@ -128,10 +128,47 @@ footer { max-width: 1400px; margin: 0 auto; padding: 0 24px 32px; color: var(--m
 }
 .toast[hidden] { display: none; }
 
+/* sound source and accent latch */
+.switch.source { border-radius: 8px; }
+.switch.source button { padding: 7px 12px; font-size: 13px; white-space: nowrap; }
+.latch { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; color: var(--muted); }
+.latch[aria-pressed="true"] { background: var(--step-acc); color: #1a1208; border-color: var(--step-acc); font-weight: 700; }
+.voice h3 .tools { display: inline-flex; gap: 6px; align-items: center; }
+.chip {
+  font: 600 10px/1 system-ui, sans-serif; letter-spacing: 0.06em; padding: 4px 6px; border-radius: 999px;
+  background: transparent; border: 1px solid var(--line); color: var(--muted);
+}
+.chip[aria-pressed="true"] { background: var(--accent-2); border-color: var(--accent-2); color: #1a1208; }
+.chip.loading { opacity: 0.5; }
+.voice.sampled { border-color: #ffb15c88; }
+.voice.sampled .pad { background: linear-gradient(180deg, #4a3a28, #33291e); }
+.sample-name { font: 10px ui-monospace, monospace; color: var(--accent-2); min-height: 12px; margin-top: -6px; }
+
+.for-touch { display: none; }
+@media (pointer: coarse) {
+  .for-mouse, .voice h3 kbd { display: none; }
+  .for-touch { display: inline; }
+  .knob .dial { width: 44px; height: 44px; }
+  .knob .dial::after { top: 5px; height: 14px; transform-origin: 50% 17px; }
+  .knobs { grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 10px 4px; }
+  .pad { height: 64px; }
+  .cell { height: 32px; }
+  .chip { padding: 6px 9px; }
+  .actions button { padding: 9px 12px; }
+}
+
 @media (max-width: 640px) {
-  .top { padding: 16px 16px 12px; }
-  main { padding: 0 16px 16px; }
+  .top { padding: 16px max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left)); gap: 12px; }
+  .brand h1 { font-size: 24px; }
+  .brand p { font-size: 13px; }
+  .transport { gap: 10px 12px; }
+  main { padding: 0 12px 16px; }
   footer { padding: 0 16px 24px; }
   .panel { grid-template-columns: 1fr 1fr; gap: 8px; }
-  .seq { grid-template-columns: 72px repeat(16, 22px); }
+  .voice { padding: 10px 8px; }
+  .sound-bar { padding: 10px; }
+  .sound-bar .hint { flex-basis: 100%; }
+  .seq-wrap { padding: 10px 8px; }
+  .seq { grid-template-columns: 64px repeat(16, 26px); gap: 3px; }
+  .seq .name { position: sticky; left: 0; background: var(--panel); z-index: 1; padding-right: 4px; }
 }

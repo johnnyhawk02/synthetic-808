@@ -1,6 +1,7 @@
 // The demo page: pads, knobs and a 16-step sequencer driving the drum engine in an AudioWorklet.
 import { DEFAULTS, RANGES } from '../params.js';
 import { VOICE_INDEX } from '../engine.js';
+import { SAMPLE_MAP, sampleNames } from '../sampler.js';
 
 // Panel layout: voice → knobs [param, label] and optional switch [param, offLabel, onLabel].
 const COLUMNS = [
@@ -68,9 +69,18 @@ let ctx = null, node = null, playing = false;
 
 function send(msg) { if (node) node.port.postMessage(msg); }
 
-async function ensureAudio() {
-  if (ctx) { if (ctx.state !== 'running') await ctx.resume(); return; }
+// Phones only let audio start from a finished tap (pointerup / touchend), not from the
+// pointerdown that plays a pad, and suspend it when the page is in the background.
+// Resume on every tap so the first hit and hits after switching apps still sound.
+for (const type of ['pointerup', 'touchend', 'keydown']) {
+  document.addEventListener(type, () => { if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {}); }, { passive: true });
+}
+
+let starting = null;
+function ensureAudio() { return (starting ||= startAudio()).then(() => { if (ctx.state !== 'running') ctx.resume().catch(() => {}); }); }
+async function startAudio() {
   ctx = new AudioContext({ latencyHint: 'interactive' });
+  ctx.resume().catch(() => {});
   await ctx.audioWorklet.addModule(new URL('../worklet.js', import.meta.url));
   node = new AudioWorkletNode(ctx, 'drum-voices', { outputChannelCount: [2], processorOptions: { params } });
   node.connect(ctx.destination);
@@ -80,7 +90,7 @@ async function ensureAudio() {
   };
   sendPattern();
   send({ type: 'transport', bpm: +bpmInput.value, swing: +swingInput.value });
-  if (ctx.state !== 'running') await ctx.resume();
+  if (sampleVoices.size) loadSamples().then(sendSampleVoices);
 }
 
 // ---- knobs ----
@@ -118,19 +128,23 @@ function makeKnob(id, label) {
     wrap.classList.toggle('out', v < 0 || v > 1);
     wrap.classList.toggle('changed', Math.abs(v - defaults[id]) > 1e-9);
     send({ type: 'param', id, value: v });
+    if (sampleVoices.size) showSampled();
   };
   controls[id] = set;
   set(params[id]);
 
-  let startY = 0, startV = 0;
+  let startY = 0, startV = 0, lastTap = 0;
   dial.addEventListener('pointerdown', (e) => {
+    // double-tap for the default on touch screens (no dblclick there)
+    if (e.pointerType !== 'mouse' && e.timeStamp - lastTap < 320) { set(defaults[id]); lastTap = 0; e.preventDefault(); return; }
+    lastTap = e.timeStamp;
     dial.setPointerCapture(e.pointerId);
     startY = e.clientY; startV = params[id];
     e.preventDefault();
   });
   dial.addEventListener('pointermove', (e) => {
     if (!dial.hasPointerCapture(e.pointerId)) return;
-    const px = e.shiftKey ? 600 : 150; // pixels per 0..1
+    const px = e.shiftKey ? 600 : e.pointerType === 'mouse' ? 150 : 200; // pixels per 0..1
     set(startV + (startY - e.clientY) / px);
   });
   dial.addEventListener('dblclick', () => set(defaults[id]));
@@ -155,6 +169,7 @@ function makeSwitch([id, off, on], onChange) {
     bOn.setAttribute('aria-pressed', String(v >= 0.5));
     send({ type: 'param', id, value: v });
     onChange?.(v >= 0.5);
+    if (sampleVoices.size) showSampled();
   };
   controls[id] = set;
   bOff.onclick = () => set(0);
@@ -162,6 +177,51 @@ function makeSwitch([id, off, on], onChange) {
   el.append(bOff, bOn);
   set(params[id]);
   return el;
+}
+
+// ---- 808 samples ----
+// Recordings play in place of the synth for the voices in sampleVoices; each hit picks the
+// recording whose knob positions are nearest the voice's knobs (see sampler.js).
+const sampleVoices = new Set();
+const sampleUi = {};
+let samplesLoading = null;
+const paramsView = { get: (id) => params[id] };
+function loadSamples() {
+  return (samplesLoading ||= (async () => {
+    say('Loading the 808 samples…');
+    const base = new URL('../samples/808/', import.meta.url);
+    const calibration = await (await fetch(new URL('calibration.json', base))).json();
+    const banks = {};
+    let failed = 0;
+    await Promise.all(sampleNames().map(async (name) => {
+      try {
+        const r = await fetch(new URL(`${name.slice(0, 2)}/${name}.WAV`, base));
+        if (!r.ok) throw new Error(r.status);
+        const audio = await ctx.decodeAudioData(await r.arrayBuffer());
+        banks[name] = audio.getChannelData(0);
+      } catch { failed++; }
+    }));
+    send({ type: 'samples', calibration, banks });
+    say(failed ? `Loaded the 808 samples, but ${failed} files failed.` : 'Loaded the 808 samples.');
+  })().catch((err) => { samplesLoading = null; say("Couldn't load the 808 samples."); throw err; }));
+}
+function sendSampleVoices() { send({ type: 'useSample', voices: [...sampleVoices] }); }
+async function setSampled(voices, on) {
+  for (const vi of voices) on ? sampleVoices.add(vi) : sampleVoices.delete(vi);
+  showSampled();
+  if (on) { await ensureAudio(); await loadSamples().catch(() => {}); }
+  sendSampleVoices();
+}
+function showSampled() {
+  for (const [vi, ui] of Object.entries(sampleUi)) {
+    const on = sampleVoices.has(+vi);
+    ui.chip.setAttribute('aria-pressed', String(on));
+    ui.box.classList.toggle('sampled', on);
+    ui.nameEl.textContent = on ? SAMPLE_MAP[vi].name(paramsView) : '';
+  }
+  const all = sampleVoices.size === Object.keys(sampleUi).length;
+  document.getElementById('src-808').setAttribute('aria-pressed', String(all));
+  document.getElementById('src-synth').setAttribute('aria-pressed', String(sampleVoices.size === 0));
 }
 
 // ---- panel ----
@@ -181,15 +241,39 @@ for (const col of COLUMNS) {
     h.append(k);
   }
   box.append(h);
+  if (col.voice && SAMPLE_MAP[VOICE_INDEX[col.voice]]) {
+    const vi = VOICE_INDEX[col.voice];
+    const chip = document.createElement('button');
+    chip.className = 'chip';
+    chip.textContent = '808';
+    chip.title = 'Play a recording of a real TR-808 instead of the synth';
+    chip.setAttribute('aria-pressed', 'false');
+    chip.onclick = () => setSampled([vi], !sampleVoices.has(vi));
+    const tools = document.createElement('span');
+    tools.className = 'tools';
+    if (col.key) h.lastChild.remove(); // the key label moves into `tools`, beside the chip
+    if (col.key) {
+      const k = document.createElement('kbd');
+      k.className = 'key';
+      k.textContent = col.key.toUpperCase();
+      tools.append(k);
+    }
+    tools.append(chip);
+    h.append(tools);
+    const nameEl = document.createElement('div');
+    nameEl.className = 'sample-name';
+    sampleUi[vi] = { box, chip, nameEl };
+  }
   if (col.voice) {
     const pad = document.createElement('button');
     pad.className = 'pad';
     const span = document.createElement('span');
     span.textContent = col.name;
     pad.append(span);
-    pad.addEventListener('pointerdown', (e) => { hit(col.voice, e.shiftKey); });
+    pad.addEventListener('pointerdown', (e) => { hit(col.voice, e.shiftKey || accentLatch); });
     pads[col.voice] = { pad, span, col };
     box.append(pad);
+    if (sampleUi[VOICE_INDEX[col.voice]]) box.append(sampleUi[VOICE_INDEX[col.voice]].nameEl);
   }
   const knobs = document.createElement('div');
   knobs.className = 'knobs';
@@ -292,6 +376,12 @@ async function setPlaying(on) {
   if (!on && lastStep >= 0) { cells[lastStep].forEach((c) => c.classList.remove('now')); lastStep = -1; }
 }
 playBtn.onclick = () => setPlaying(!playing);
+let accentLatch = false;
+const accentBtn = document.getElementById('accent-latch');
+accentBtn.onclick = () => { accentLatch = !accentLatch; accentBtn.setAttribute('aria-pressed', String(accentLatch)); };
+const allSampleVoices = () => Object.keys(sampleUi).map(Number);
+document.getElementById('src-synth').onclick = () => setSampled(allSampleVoices(), false);
+document.getElementById('src-808').onclick = () => setSampled(allSampleVoices(), true);
 bpmInput.oninput = () => send({ type: 'transport', bpm: +bpmInput.value });
 swingInput.oninput = () => send({ type: 'transport', swing: +swingInput.value });
 document.querySelectorAll('[data-preset]').forEach((b) => { b.onclick = () => loadPreset(b.dataset.preset); });
@@ -302,7 +392,7 @@ document.addEventListener('keydown', (e) => {
   if (e.code === 'Space') { e.preventDefault(); setPlaying(!playing); return; }
   const k = e.key.toLowerCase();
   const voice = KEYS[k] ?? KEYS[{ ':': ';', '"': "'" }[k]];
-  if (voice) { e.preventDefault(); hit(voice, e.shiftKey); }
+  if (voice) { e.preventDefault(); hit(voice, e.shiftKey || accentLatch); }
 });
 
 // ---- sound settings: save / copy / load / reset ----

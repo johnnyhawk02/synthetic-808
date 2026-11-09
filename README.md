@@ -27,6 +27,8 @@ the output matches it to within floating-point rounding (see Tests).
 | `voices/dsp.js` | shared helpers (noise generators, `sgnpow`) | |
 | `params.js` | parameter ids, defaults and allowed ranges, `Params` store | `params.rs` |
 | `engine.js` | `Engine`: triggers, levels, accent, master drive/VCA/high-pass | `Engine` in `synth.rs` |
+| `sampler.js` | `Sampler`: plays the 808 recordings in place of voices, picked by knob position | |
+| `samples/808/` | the TR-808 recordings and their level calibration | |
 | `worklet.js` | AudioWorklet processor wrapping `Engine`, with a sample-accurate step sequencer | `audio.rs` |
 | `index.html`, `demo/` | the webpage | |
 | `index.js` | re-exports everything | |
@@ -105,6 +107,28 @@ To try the page locally, serve the repo folder, for example with `python3 -m htt
 http://localhost:8000.
 
 The files must be served over http(s), since worklets can't load modules from `file://`.
+
+## Comparing with a real 808
+
+`samples/808/` holds Michael Fischer's free TR-808 sample set (1994): 116 hits recorded from
+the individual outputs of a TR-808, with each sound knob at five positions (0, 2.5, 5, 7.5, 10).
+On the webpage, the **808 samples** switch (or the **808** chip on a single voice) plays these
+recordings instead of the synth. Each hit picks the recording nearest the voice's knobs:
+
+| Voice | Knobs that pick the recording |
+|---|---|
+| Bass drum | Tone, Decay |
+| Snare | Tone, Snappy |
+| Toms / congas | Tune (and the Conga/Tom switch) |
+| Cymbal | Tone, Decay |
+| Open hat | Decay |
+| Rim / claves, clap / maracas | their switch |
+| Cowbell, closed hat | none |
+
+The Level knobs still work, and accent scales the recording by as much as it would the synth.
+`samples/808/calibration.json` sets each recording's level to match the synth at default
+settings; `node test/calibrate-samples.mjs` rebuilds it. In code, attach a `Sampler`
+(`sampler.js`) to `engine.sampler` and set `engine.useSample[i] = 1` for the voices to swap.
 
 ## Oversampling
 

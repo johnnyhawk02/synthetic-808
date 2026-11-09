@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#17181b">
 <title>Synthetic 808 drum voices</title>
 <meta name="description" content="Twelve analogue-style drum voices synthesised live in the browser, with a 16-step sequencer.">
 <link rel="stylesheet" href="demo/style.css">
@@ -17,6 +18,11 @@
     <button id="play" class="play" aria-pressed="false"><span class="icon"></span><span class="label">Play</span></button>
     <label class="field">Tempo <input id="bpm" type="number" min="30" max="300" value="120"> <span class="unit">BPM</span></label>
     <label class="field">Swing <input id="swing" type="range" min="0" max="0.4" step="0.01" value="0"></label>
+    <div class="switch source" role="group" aria-label="Sound source" title="Play every voice from the synth or from recordings of a real TR-808">
+      <button id="src-synth" aria-pressed="true">Synth</button>
+      <button id="src-808" aria-pressed="false">808 samples</button>
+    </div>
+    <button id="accent-latch" class="latch" aria-pressed="false" title="Accent every pad hit">Accent</button>
     <div class="presets" role="group" aria-label="Patterns">
       <button data-preset="basic">Basic</button>
       <button data-preset="electro">Electro</button>
@@ -28,7 +34,10 @@
 
 <main>
   <section class="sound-bar" aria-label="Sound settings">
-    <p class="hint">Knobs go past their standard range for tuning; the orange arc on each dial marks the 0 to 1 span. Drag, scroll or use the arrow keys, hold <kbd>Shift</kbd> for fine moves, double-click for the default. A dot marks knobs moved from the default.</p>
+    <p class="hint">Knobs go past their standard range for tuning; the orange arc on each dial marks the 0 to 1 span.
+      <span class="for-mouse">Drag, scroll or use the arrow keys, hold <kbd>Shift</kbd> for fine moves, double-click for the default.</span>
+      <span class="for-touch">Drag up or down, double-tap for the default.</span>
+      A dot marks knobs moved from the default. The <b>808</b> chip on each voice swaps it for a recording of a real TR-808, picked by its nearest knob positions.</p>
     <div class="actions">
       <button id="save-default" class="primary">Save as default</button>
       <button id="copy-settings">Copy settings</button>
@@ -41,13 +50,14 @@
   <section class="seq-wrap" aria-label="Sequencer">
     <div class="seq-head">
       <h2>Pattern</h2>
-      <p class="hint">Click a step to add a hit, click again to accent it, once more to clear. Pads play from the keyboard: <kbd>A</kbd>–<kbd>'</kbd>, hold <kbd>Shift</kbd> to accent, <kbd>Space</kbd> starts and stops.</p>
+      <p class="hint">Tap a step to add a hit, again to accent it, once more to clear.<span class="for-mouse"> Pads play from the keyboard: <kbd>A</kbd>–<kbd>'</kbd>, hold <kbd>Shift</kbd> to accent, <kbd>Space</kbd> starts and stops.</span></p>
     </div>
     <div class="seq" id="seq"></div>
   </section>
 </main>
 
 <footer>
+  <p>808 samples: Michael Fischer's free TR-808 sample set (1994).</p>
   <p>Sound engine: <a href="https://github.com/johnnyhawk02/synthetic-808">synthetic-808</a>, plain ES modules running in an AudioWorklet.</p>
 </footer>
 
